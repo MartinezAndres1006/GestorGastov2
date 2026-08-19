@@ -205,7 +205,7 @@
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background: var(--bg-app);
-      z-index: 1000;
+      z-index: 50;
       display: flex;
       flex-direction: column;
       overflow-y: auto;
@@ -668,7 +668,7 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(15, 23, 42, 0.55);
       backdrop-filter: blur(3px);
-      z-index: 100;
+      z-index: 2000;
       display: none;
       opacity: 0;
       transition: opacity 0.25s ease;
@@ -683,7 +683,7 @@
       border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       padding: 16px 18px calc(24px + var(--safe-bottom)) 18px;
       box-shadow: var(--shadow-sheet);
-      z-index: 101;
+      z-index: 2001;
       transform: translateY(100%);
       transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
@@ -921,11 +921,18 @@
         <p class="auth-subtitle">Accede a tus datos desde cualquier dispositivo</p>
       </div>
 
+      <!-- Banner si falta configuración de Supabase -->
+      <div id="supabase-config-warning" style="display: none; background: var(--color-warning-subtle); border: 1px solid #fde68a; color: #92400e; border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; font-size: 0.82rem; text-align: center;">
+        <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">⚠️ Supabase no configurado</div>
+        <div style="margin-bottom: 10px;">Debes ingresar la URL y Clave Anon de tu proyecto para registrarte o iniciar sesión.</div>
+        <button type="button" class="btn-primary" style="height: 38px; font-size: 0.82rem;" onclick="SupabaseConfigModule.openConfigModal()">⚙️ Configurar Credenciales Ahora</button>
+      </div>
+
       <div class="auth-card">
         <div class="auth-tabs">
-          <button class="auth-tab-btn active" id="tab-auth-login" onclick="AuthModule.setMode('login')">Iniciar Sesión</button>
-          <button class="auth-tab-btn" id="tab-auth-register" onclick="AuthModule.setMode('register')">Registrarse</button>
-          <button class="auth-tab-btn" id="tab-auth-forgot" onclick="AuthModule.setMode('forgot')">Recuperar</button>
+          <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="AuthModule.setMode('login')">Iniciar Sesión</button>
+          <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="AuthModule.setMode('register')">Registrarse</button>
+          <button type="button" class="auth-tab-btn" id="tab-auth-forgot" onclick="AuthModule.setMode('forgot')">Recuperar</button>
         </div>
 
         <div id="auth-alert-box" class="auth-alert"></div>
@@ -938,12 +945,12 @@
 
           <div class="form-group">
             <label class="form-label">Correo Electrónico</label>
-            <input type="email" id="auth-email" class="form-input" placeholder="nombre@correo.com" required inputmode="email">
+            <input type="email" id="auth-email" class="form-input" placeholder="nombre@correo.com" required inputmode="email" autocomplete="email">
           </div>
 
           <div class="form-group" id="auth-group-password">
             <label class="form-label">Contraseña</label>
-            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required minlength="6">
+            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required minlength="6" autocomplete="current-password">
           </div>
 
           <button type="submit" class="btn-primary" id="auth-submit-btn" style="margin-top: 8px;">
@@ -952,7 +959,7 @@
         </form>
 
         <div style="margin-top: 16px; text-align: center;">
-          <button class="card-action-btn" onclick="SupabaseConfigModule.openConfigModal()">⚙️ Configurar conexión Supabase</button>
+          <button type="button" class="card-action-btn" onclick="SupabaseConfigModule.openConfigModal()">⚙️ Configurar conexión Supabase</button>
         </div>
       </div>
     </div>
@@ -1484,11 +1491,16 @@
       mode: 'login', // 'login', 'register', 'forgot'
 
       async init() {
-        if (!SupabaseService.isConfigured()) {
+        const isCfg = SupabaseService.init();
+        const warningBanner = document.getElementById('supabase-config-warning');
+
+        if (!isCfg || !SupabaseService.isConfigured()) {
           this.showAuthScreen();
-          this.showAlert('Configura las credenciales de Supabase para iniciar sesión.', 'error');
+          if (warningBanner) warningBanner.style.display = 'block';
           return;
         }
+
+        if (warningBanner) warningBanner.style.display = 'none';
 
         // Escuchar cambios de sesión en tiempo real
         SupabaseService.client.auth.onAuthStateChange(async (event, session) => {
@@ -1502,11 +1514,16 @@
         });
 
         // Verificar sesión existente
-        const { data: { session } } = await SupabaseService.client.auth.getSession();
-        if (session && session.user) {
-          this.currentUser = session.user;
-          this.onUserLoggedIn();
-        } else {
+        try {
+          const { data: { session } } = await SupabaseService.client.auth.getSession();
+          if (session && session.user) {
+            this.currentUser = session.user;
+            this.onUserLoggedIn();
+          } else {
+            this.showAuthScreen();
+          }
+        } catch (e) {
+          console.error('Error al obtener sesión:', e);
           this.showAuthScreen();
         }
       },
@@ -1535,19 +1552,23 @@
 
         const nameGroup = document.getElementById('auth-group-name');
         const passGroup = document.getElementById('auth-group-password');
+        const passInput = document.getElementById('auth-password');
         const submitBtnText = document.getElementById('auth-btn-text');
 
         if (mode === 'register') {
           nameGroup.style.display = 'block';
           passGroup.style.display = 'block';
+          passInput.required = true;
           submitBtnText.innerText = 'Crear mi Cuenta';
         } else if (mode === 'forgot') {
           nameGroup.style.display = 'none';
           passGroup.style.display = 'none';
+          passInput.required = false;
           submitBtnText.innerText = 'Enviar Enlace de Recuperación';
         } else {
           nameGroup.style.display = 'none';
           passGroup.style.display = 'block';
+          passInput.required = true;
           submitBtnText.innerText = 'Ingresar a mi Cuenta';
         }
       },
@@ -1565,10 +1586,11 @@
       },
 
       async handleSubmit(event) {
-        event.preventDefault();
+        if (event) event.preventDefault();
         this.clearAlert();
 
         if (!SupabaseService.isConfigured()) {
+          this.showAlert('Configura las credenciales de Supabase para poder continuar.', 'error');
           SupabaseConfigModule.openConfigModal();
           return;
         }
@@ -1577,9 +1599,21 @@
         const password = document.getElementById('auth-password').value;
         const fullName = document.getElementById('auth-name').value.trim();
         const submitBtn = document.getElementById('auth-submit-btn');
+        const submitBtnText = document.getElementById('auth-btn-text');
+
+        if (!email) {
+          this.showAlert('Por favor ingresa un correo electrónico válido.', 'error');
+          return;
+        }
+
+        if (this.mode !== 'forgot' && (!password || password.length < 6)) {
+          this.showAlert('La contraseña debe tener al menos 6 caracteres.', 'error');
+          return;
+        }
 
         submitBtn.disabled = true;
-        submitBtn.style.opacity = '0.7';
+        const originalText = submitBtnText.innerText;
+        submitBtnText.innerText = 'Procesando...';
 
         try {
           if (this.mode === 'login') {
@@ -1593,20 +1627,35 @@
               options: { data: { full_name: fullName } }
             });
             if (error) throw error;
-            this.showAlert('¡Cuenta creada! Revisa tu correo si requiere confirmación o ingresa directamente.', 'success');
-            UIModule.showToast('Cuenta creada exitosamente', '✓');
+
+            if (data.session) {
+              UIModule.showToast('¡Cuenta creada y sesión iniciada!', '🎉');
+            } else {
+              this.showAlert('¡Cuenta creada con éxito! Si tu proyecto de Supabase tiene confirmación de email activada, revisa tu bandeja de entrada para verificar tu cuenta y luego inicia sesión.', 'success');
+              UIModule.showToast('Revisa tu correo para confirmar', '✉️');
+            }
           } else if (this.mode === 'forgot') {
             const { error } = await SupabaseService.client.auth.resetPasswordForEmail(email);
             if (error) throw error;
-            this.showAlert('Te enviamos un correo para restablecer tu contraseña.', 'success');
+            this.showAlert('Te enviamos un enlace a tu correo para restablecer tu contraseña.', 'success');
+            UIModule.showToast('Enlace enviado por correo', '✉️');
           }
         } catch (err) {
-          console.error(err);
-          const errorMsg = err.message === 'Invalid login credentials' ? 'Credenciales incorrectas. Verifica tu email y contraseña.' : (err.message || 'Error de autenticación.');
+          console.error('Error de autenticación:', err);
+          let errorMsg = err.message || 'Error de autenticación.';
+          if (err.message === 'Invalid login credentials') {
+            errorMsg = 'Credenciales incorrectas. Verifica tu email y contraseña.';
+          } else if (err.message && err.message.includes('User already registered')) {
+            errorMsg = 'Este correo ya se encuentra registrado. Selecciona "Iniciar Sesión".';
+          } else if (err.message && err.message.includes('Password should be at least')) {
+            errorMsg = 'La contraseña debe tener al menos 6 caracteres.';
+          } else if (err.message && err.message.includes('Email not confirmed')) {
+            errorMsg = 'Debes confirmar tu correo electrónico antes de ingresar. Revisa tu casilla de email (o Spam).';
+          }
           this.showAlert(errorMsg, 'error');
         } finally {
           submitBtn.disabled = false;
-          submitBtn.style.opacity = '1';
+          submitBtnText.innerText = originalText;
         }
       },
 
