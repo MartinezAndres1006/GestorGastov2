@@ -1719,15 +1719,26 @@
         } catch (err) {
           console.error('Error de autenticación:', err);
           let errorMsg = err.message || 'Error de autenticación.';
-          if (err.message === 'Invalid login credentials') {
+          const msg = (err.message || '').toLowerCase();
+
+          if (msg.includes('invalid login credentials')) {
             errorMsg = 'Credenciales incorrectas. Verifica tu email y contraseña.';
-          } else if (err.message && err.message.includes('User already registered')) {
-            errorMsg = 'Este correo ya se encuentra registrado. Selecciona "Iniciar Sesión".';
-          } else if (err.message && err.message.includes('Password should be at least')) {
+          } else if (msg.includes('user already registered')) {
+            errorMsg = 'Este correo ya está registrado. Selecciona la pestaña "Iniciar Sesión".';
+          } else if (msg.includes('password should be at least')) {
             errorMsg = 'La contraseña debe tener al menos 6 caracteres.';
-          } else if (err.message && err.message.includes('Email not confirmed')) {
-            errorMsg = 'Debes confirmar tu correo electrónico antes de ingresar. Revisa tu casilla de email (o Spam).';
+          } else if (msg.includes('email not confirmed')) {
+            errorMsg = 'Debes confirmar tu correo antes de ingresar. Revisa tu casilla (o Spam).';
+          } else if (msg.includes('error sending') || msg.includes('smtp') || msg.includes('535 authentication')) {
+            errorMsg = 'Error al enviar el email por SMTP. Verifica las credenciales de tu SMTP en Supabase o desactiva "Confirm email".';
+          } else if (msg.includes('rate limit') || msg.includes('over email')) {
+            errorMsg = 'Límite de correos superado. Desactiva "Confirm email" en Supabase o conecta tu SMTP propio para registros ilimitados.';
+          } else if (msg.includes('database error') || msg.includes('saving new user')) {
+            errorMsg = 'Error en la base de datos al guardar el usuario. Asegúrate de haber ejecutado el script supabase_schema.sql en Supabase.';
+          } else if (msg.includes('signup') && msg.includes('disabled')) {
+            errorMsg = 'Los registros están deshabilitados en Supabase (Authentication → Providers → Email → Allow new users to sign up).';
           }
+
           this.showAlert(errorMsg, 'error');
         } finally {
           submitBtn.disabled = false;
