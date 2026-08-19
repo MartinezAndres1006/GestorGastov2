@@ -1,8 +1,9 @@
-const CACHE_NAME = 'finanzas-app-v2';
+const CACHE_NAME = 'thesio-app-v2.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
+  './logo.png',
   './env.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
