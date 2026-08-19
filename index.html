@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Gestor Financiero Personal | Finanzas Mobile V2</title>
-  <meta name="description" content="Aplicación de finanzas personales mobile-first con sincronización en la nube (Supabase), autenticación segura y persistencia local offline.">
-  <meta name="theme-color" content="#0f172a">
+  <title>Thesio | Finanzas Inteligentes</title>
+  <meta name="description" content="Thesio - Gestión financiera personal mobile-first con sincronización en la nube (Supabase), autenticación segura y modo oscuro.">
+  <meta name="theme-color" content="#0b0f19">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
@@ -22,12 +22,57 @@
 
   <style>
     /* ==========================================================================
-       01. VARIABLES DE DISEÑO & RESET (CSS TOKENS)
+       01. VARIABLES DE DISEÑO & RESET (CSS TOKENS - MODO OSCURO & CLARO)
        ========================================================================== */
-    :root {
+    :root, [data-theme="dark"] {
       --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       
-      /* Paleta de Colores Moderna y Elegante */
+      /* Modo Oscuro (Por Defecto) */
+      --bg-app: #0b0f19;
+      --bg-surface: #111827;
+      --bg-surface-elevated: #1f2937;
+      --bg-subtle: #1e293b;
+      --bg-subtle-hover: #334155;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      
+      --brand-primary: #3b82f6;
+      --brand-primary-light: #60a5fa;
+      --brand-accent: #3b82f6;
+      --brand-accent-subtle: rgba(59, 130, 246, 0.18);
+      
+      --color-income: #10b981;
+      --color-income-subtle: rgba(16, 185, 129, 0.15);
+      --color-expense: #ef4444;
+      --color-expense-subtle: rgba(239, 68, 68, 0.15);
+      --color-transfer: #818cf8;
+      --color-transfer-subtle: rgba(99, 102, 241, 0.15);
+      --color-warning: #f59e0b;
+      --color-warning-subtle: rgba(245, 158, 11, 0.15);
+      --color-info: #0284c7;
+      --color-info-subtle: rgba(2, 132, 199, 0.15);
+      
+      --border-color: #1e293b;
+      --border-focus: #3b82f6;
+      
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 12px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+      --shadow-sheet: 0 -8px 30px rgba(0, 0, 0, 0.7);
+      
+      --nav-height: 64px;
+      --header-height: 56px;
+      --safe-bottom: env(safe-area-inset-bottom, 12px);
+    }
+
+    [data-theme="light"] {
       --bg-app: #f8fafc;
       --bg-surface: #ffffff;
       --bg-surface-elevated: #ffffff;
@@ -57,19 +102,10 @@
       --border-color: #e2e8f0;
       --border-focus: #0f172a;
       
-      --radius-sm: 8px;
-      --radius-md: 14px;
-      --radius-lg: 20px;
-      --radius-full: 9999px;
-      
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
       --shadow-md: 0 4px 12px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
       --shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.12), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
       --shadow-sheet: 0 -8px 30px rgba(15, 23, 42, 0.15);
-      
-      --nav-height: 64px;
-      --header-height: 56px;
-      --safe-bottom: env(safe-area-inset-bottom, 12px);
     }
 
     * {
@@ -88,6 +124,7 @@
       font-size: 15px;
       line-height: 1.4;
       user-select: none;
+      transition: background-color 0.25s, color 0.25s;
     }
 
     /* Contenedor Responsivo: Mobile First con marco centrado en Desktop */
@@ -101,12 +138,13 @@
       display: flex;
       flex-direction: column;
       box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+      transition: background-color 0.25s;
     }
 
     /* Scrollbars elegantes */
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
     /* ==========================================================================
        02. HEADER SUPERIOR Y INDICADOR DE SINCRONIZACIÓN
@@ -122,16 +160,34 @@
       position: sticky;
       top: 0;
       z-index: 20;
+      transition: background-color 0.25s, border-color 0.25s;
     }
 
     .brand-title {
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       font-weight: 800;
       color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 6px;
+      letter-spacing: -0.3px;
     }
+
+    .theme-toggle-btn {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+      color: var(--text-main);
+    }
+    .theme-toggle-btn:hover { background: var(--bg-subtle-hover); transform: scale(1.05); }
 
     /* Indicador de Sincronización en Header */
     .sync-badge {
@@ -187,7 +243,7 @@
       color: var(--text-main);
       transition: background 0.15s;
     }
-    .month-nav-btn:hover { background: #e2e8f0; }
+    .month-nav-btn:hover { background: var(--bg-subtle-hover); }
 
     .month-label {
       font-size: 0.8rem;
@@ -916,9 +972,9 @@
     <!-- PANTALLA DE AUTENTICACIÓN (LOGIN / REGISTRO / RECUPERACIÓN) -->
     <div id="screen-auth" style="display: none;">
       <div class="auth-hero">
-        <div class="auth-logo">💳</div>
-        <h1 class="auth-title">Finanzas Personales</h1>
-        <p class="auth-subtitle">Accede a tus datos desde cualquier dispositivo</p>
+        <div class="auth-logo">💎</div>
+        <h1 class="auth-title">Thesio</h1>
+        <p class="auth-subtitle">Gestor financiero personal inteligente</p>
       </div>
 
       <!-- Banner si falta configuración de Supabase -->
@@ -967,7 +1023,8 @@
     <!-- HEADER SUPERIOR -->
     <header class="app-header">
       <div class="brand-title">
-        <span>Finanzas</span>
+        <span style="font-size: 1.15rem;">💎</span>
+        <span>Thesio</span>
         <!-- Indicador de Sincronización -->
         <div class="sync-badge synced" id="sync-indicator" onclick="SyncService.syncAll(true)" title="Estado de sincronización (Click para forzar)">
           <span class="sync-dot"></span>
@@ -975,11 +1032,16 @@
         </div>
       </div>
 
-      <!-- Selector Rápido de Mes -->
-      <div class="month-selector">
-        <button class="month-nav-btn" id="btn-prev-month" title="Mes anterior">◀</button>
-        <span class="month-label" id="current-month-display" title="Cambiar mes">Agosto 2026</span>
-        <button class="month-nav-btn" id="btn-next-month" title="Mes siguiente">▶</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <!-- Selector Rápido de Mes -->
+        <div class="month-selector">
+          <button class="month-nav-btn" id="btn-prev-month" title="Mes anterior">◀</button>
+          <span class="month-label" id="current-month-display" title="Cambiar mes">Agosto 2026</span>
+          <button class="month-nav-btn" id="btn-next-month" title="Mes siguiente">▶</button>
+        </div>
+
+        <!-- Botón Modo Oscuro / Claro -->
+        <button type="button" class="theme-toggle-btn" id="btn-theme-toggle" onclick="ThemeModule.toggle()" title="Cambiar tema">🌙</button>
       </div>
     </header>
 
@@ -1230,6 +1292,17 @@
           </div>
 
           <div class="card">
+            <span class="card-title" style="margin-bottom: 12px;">Apariencia & Tema</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-weight: 700; font-size: 0.9rem;" id="setting-theme-current">Modo Oscuro (Activo)</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Alterna entre interfaz oscura y clara</div>
+              </div>
+              <button type="button" class="btn-secondary" style="width: auto; height: 36px; padding: 0 14px; margin: 0; font-size: 0.8rem;" onclick="ThemeModule.toggle()">🌓 Cambiar</button>
+            </div>
+          </div>
+
+          <div class="card">
             <span class="card-title" style="margin-bottom: 12px;">Gestión de Cuentas y Categorías</span>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               <button class="btn-secondary" onclick="AccountsModule.openCreateAccountModal()">+ Crear Nueva Cuenta</button>
@@ -1458,10 +1531,13 @@
       client: null,
 
       init() {
-        const url = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('supabase_url') || '';
-        const key = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('supabase_anon_key') || '';
+        let url = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('supabase_url') || '';
+        let key = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('supabase_anon_key') || '';
 
-        if (url && key && window.supabase) {
+        url = (url || '').trim().replace(/\/+$/, '');
+        key = (key || '').trim();
+
+        if (url && key && window.supabase && typeof window.supabase.createClient === 'function') {
           try {
             this.client = window.supabase.createClient(url, key, {
               auth: {
@@ -1710,8 +1786,8 @@
 
       saveConfig(event) {
         event.preventDefault();
-        const url = document.getElementById('cfg-supabase-url').value.trim();
-        const key = document.getElementById('cfg-supabase-key').value.trim();
+        let url = document.getElementById('cfg-supabase-url').value.trim().replace(/\/+$/, '');
+        let key = document.getElementById('cfg-supabase-key').value.trim();
 
         localStorage.setItem('supabase_url', url);
         localStorage.setItem('supabase_anon_key', key);
@@ -4045,21 +4121,69 @@
     };
 
     // =========================================================================
-    // 23. INICIALIZACIÓN GLOBAL
+    // 23. MÓDULO DE TEMA (DARK MODE / LIGHT MODE)
+    // =========================================================================
+    const ThemeModule = {
+      currentTheme: 'dark',
+
+      init() {
+        const saved = localStorage.getItem('thesio_theme') || 'dark';
+        this.setTheme(saved, false);
+      },
+
+      setTheme(theme, showToastMsg = false) {
+        this.currentTheme = theme;
+        document.documentElement.setAttribute('data-theme', theme);
+        const viewport = document.getElementById('app-viewport');
+        if (viewport) viewport.setAttribute('data-theme', theme);
+        localStorage.setItem('thesio_theme', theme);
+
+        const btn = document.getElementById('btn-theme-toggle');
+        if (btn) {
+          btn.innerText = theme === 'dark' ? '🌙' : '☀️';
+          btn.title = theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro';
+        }
+
+        const settingText = document.getElementById('setting-theme-current');
+        if (settingText) {
+          settingText.innerText = theme === 'dark' ? 'Modo Oscuro (Activo)' : 'Modo Claro (Activo)';
+        }
+
+        if (showToastMsg) {
+          UIModule.showToast(theme === 'dark' ? 'Modo Oscuro Activado' : 'Modo Claro Activado', theme === 'dark' ? '🌙' : '☀️');
+        }
+
+        if (typeof ChartsModule !== 'undefined' && ChartsModule.renderCharts && AppStore.state && AppStore.state.activeTab === 'more' && AppStore.state.activeMoreSubtab === 'analytics') {
+          setTimeout(() => ChartsModule.renderCharts(), 50);
+        }
+      },
+
+      toggle() {
+        const next = this.currentTheme === 'dark' ? 'light' : 'dark';
+        this.setTheme(next, true);
+      }
+    };
+
+    // =========================================================================
+    // 24. INICIALIZACIÓN GLOBAL
     // =========================================================================
     document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Inicializar Tema (Modo Oscuro por defecto)
+      ThemeModule.init();
+
+      // 2. Inicializar Store y Persistencia
       AppStore.init();
       await StorageService.init();
       SupabaseService.init();
 
-      // Iniciar capa de autenticación
+      // 3. Iniciar capa de autenticación
       await AuthModule.init();
 
-      // Eventos de Navegación Temporal
+      // 4. Eventos de Navegación Temporal
       document.getElementById('btn-prev-month').addEventListener('click', () => AppNavigation.changeMonth(-1));
       document.getElementById('btn-next-month').addEventListener('click', () => AppNavigation.changeMonth(1));
 
-      // Filtros de Movimientos
+      // 5. Filtros de Movimientos
       document.querySelectorAll('#tx-type-filters .filter-pill').forEach(pill => {
         pill.addEventListener('click', (e) => {
           document.querySelectorAll('#tx-type-filters .filter-pill').forEach(p => p.classList.remove('active'));
@@ -4069,30 +4193,30 @@
         });
       });
 
-      // Buscador
+      // 6. Buscador
       document.getElementById('tx-search-input').addEventListener('input', (e) => {
         AppStore.state.txSearch = e.target.value;
         AppNavigation.renderMovements();
       });
 
-      // Copiar presupuestos
+      // 7. Copiar presupuestos
       document.getElementById('btn-copy-previous-budget').addEventListener('click', () => {
         BudgetsModule.copyPreviousMonthBudgets();
       });
 
-      // Sub-navegación Más
+      // 8. Sub-navegación Más
       document.querySelectorAll('#more-subnav .segment-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           AppNavigation.switchMoreSubtab(e.target.dataset.subtab);
         });
       });
 
-      // Service Worker para offline
+      // 9. Service Worker para offline
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(err => console.log('SW:', err));
       }
 
-      // Escuchar conexión a internet
+      // 10. Escuchar conexión a internet
       window.addEventListener('online', () => SyncService.syncAll(true));
       window.addEventListener('offline', () => SyncService.updateIndicator('offline', 'Sin conexión'));
     });

@@ -1,37 +1,83 @@
-# 📱 Gestor Financiero Personal (V2 - Cloud Sync & Auth)
+# 📱 Gestor Financiero Personal (V2 - Cloud Sync, Supabase Auth & SMTP)
 
-Aplicación web de gestión financiera personal mobile-first, moderna y segura, con **autenticación de usuarios**, **base de datos en la nube (Supabase PostgreSQL)**, **Row Level Security (RLS)**, **sincronización multi-dispositivo** y **soporte offline con IndexedDB**.
+Aplicación web de gestión financiera personal mobile-first, moderna y segura, con **autenticación de usuarios**, **base de datos en la nube (Supabase PostgreSQL)**, **Row Level Security (RLS)**, **sincronización multi-dispositivo**, **soporte para SMTP propio** y **persistencia offline con IndexedDB**.
 
 ---
 
 ## 🚀 Guía de Configuración y Despliegue Paso a Paso
 
 ### 1. ¿Qué archivos componen el proyecto?
-* **[`index.html`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/index.html)**: Aplicación web completa con interfaz Mobile-First, autenticación Supabase, cálculo financiero y analítica gráfica.
-* **[`supabase_schema.sql`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/supabase_schema.sql)**: Script SQL ejecutable en Supabase (11 tablas, claves foráneas, triggers de `updated_at`, perfil automático de usuario y políticas RLS estrictas).
-* **[`env.js`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/env.js)**: Configuración de credenciales públicas de Supabase (`SUPABASE_URL` y `SUPABASE_ANON_KEY`).
-* **[`manifest.json`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/manifest.json)** & **[`sw.js`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/sw.js)**: Soporte para instalación como PWA y funcionamiento offline.
+* **[`index.html`](file:///C:/Users/alena/Desktop/gestor-financiero/index.html)**: Aplicación web completa con interfaz Mobile-First, autenticación Supabase, cálculo financiero y analítica gráfica.
+* **[`supabase_schema.sql`](file:///C:/Users/alena/Desktop/gestor-financiero/supabase_schema.sql)**: Script SQL ejecutable en Supabase (11 tablas, claves foráneas, triggers de `updated_at`, perfiles automáticos y políticas RLS estrictas).
+* **[`env.js`](file:///C:/Users/alena/Desktop/gestor-financiero/env.js)**: Configuración de credenciales de Supabase (`SUPABASE_URL` y `SUPABASE_ANON_KEY`).
+* **[`manifest.json`](file:///C:/Users/alena/Desktop/gestor-financiero/manifest.json)** & **[`sw.js`](file:///C:/Users/alena/Desktop/gestor-financiero/sw.js)**: Soporte para instalación como PWA y funcionamiento offline.
 
 ---
 
-### 2. Configurar Backend en Supabase (3 Minutos)
+### 2. Configurar Base de Datos en Supabase (3 Minutos)
 
 1. Crea una cuenta gratuita en [supabase.com](https://supabase.com) y crea un **Nuevo Proyecto** (ej: `finanzas-personales`).
-2. En el menú lateral izquierdo de tu proyecto, haz clic en **"SQL Editor"**.
-3. Abre el archivo [`supabase_schema.sql`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/supabase_schema.sql), copia todo su contenido, pégalo en el editor de Supabase y haz clic en **"RUN"**.
+2. En el menú lateral izquierdo de tu proyecto, haz clic en **"SQL Editor"** (ícono `>_`).
+3. Abre el archivo [`supabase_schema.sql`](file:///C:/Users/alena/Desktop/gestor-financiero/supabase_schema.sql), copia todo su contenido, pégalo en el editor y haz clic en **"RUN"**.
 4. ¡Listo! Se habrán creado todas las tablas con sus índices, triggers y políticas RLS de seguridad que aseguran que cada usuario solo acceda a sus propios datos.
-5. Ve a **Project Settings** (icono de engranaje) → **API** y copia:
+5. Ve a **Project Settings** (⚙️) → **API** y copia:
    * **Project URL** (ej: `https://xyzcompany.supabase.co`)
-   * **Project API Keys** → `anon` `public` (la clave pública).
+   * **anon public Key** (la clave pública que empieza con `eyJ...`).
 
 ---
 
-### 3. Conectar la Aplicación con Supabase
+### 3. Configurar SMTP Propio en Supabase (Para autenticación ilimitada sin límites de envío)
+
+> [!IMPORTANT]
+> **¿Por qué configurar un SMTP propio?**
+> Supabase en su plan gratuito incluye un servidor de email por defecto limitado a **3 a 4 correos por hora**. Si intentas registrar varios usuarios seguidos, Supabase bloquea los envíos con el error *"Email rate limit exceeded"*.
+> Al conectar tu propio servidor SMTP (como **Gmail**, **Resend** o **Brevo**), eliminas esta restricción y puedes enviar cientos o miles de correos de confirmación y recuperación de contraseña sin límites.
+
+#### Opción A: Configurar con Gmail (Rápido y Gratis)
+1. En tu cuenta de Google, ve a [Seguridad de Google](https://myaccount.google.com/security) y asegúrate de tener la **Verificación en 2 pasos activada**.
+2. Ve a [Contraseñas de Aplicaciones](https://myaccount.google.com/apppasswords).
+3. Genera una contraseña para `Supabase Finanzas` y copia la clave de 16 letras que te da Google.
+4. En tu panel de Supabase, ve a **Project Settings** (⚙️) → **Authentication** → sección **SMTP Settings**.
+5. Activa el interruptor **"Enable Custom SMTP"** y completa los campos:
+   * **Sender email**: Tu correo de Gmail (ej: `tu_correo@gmail.com`)
+   * **Sender name**: `Finanzas Personales`
+   * **Host**: `smtp.gmail.com`
+   * **Port number**: `587`
+   * **Minimum interval between emails**: `60` (o `30`)
+   * **Username**: Tu correo de Gmail (ej: `tu_correo@gmail.com`)
+   * **Password**: La contraseña de aplicación de 16 letras generada en el paso 3.
+6. Haz clic en **"Save"**. ¡Ahora tienes envíos ilimitados desde tu propio correo!
+
+#### Opción B: Configurar con Resend (Profesional y Gratis - 3.000 emails/mes)
+1. Crea una cuenta gratuita en [resend.com](https://resend.com).
+2. Ve a **API Keys** y genera una nueva clave (ej: `re_123456...`).
+3. En Supabase (**Project Settings** → **Authentication** → **SMTP Settings**):
+   * **Sender email**: `onboarding@resend.dev` (o tu dominio verificado)
+   * **Sender name**: `Finanzas App`
+   * **Host**: `smtp.resend.com`
+   * **Port number**: `587`
+   * **Username**: `resend`
+   * **Password**: Tu clave API de Resend (`re_...`)
+4. Haz clic en **"Save"**.
+
+---
+
+### 4. Opción para Registro Instantáneo (Sin Esperar Confirmación de Email)
+
+Si prefieres que los usuarios o tú puedan registrarse e ingresar **al instante sin tener que entrar al email a verificar la cuenta**:
+1. En Supabase, ve a **Authentication** (menú lateral) → **Providers** → **Email**.
+2. Desactiva la casilla **"Confirm email"**.
+3. Haz clic en **"Save"**.
+4. ¡Listo! A partir de ese momento, cualquier usuario que se registre iniciará sesión automáticamente en la app al segundo siguiente.
+
+---
+
+### 5. Conectar la Aplicación con Supabase
 
 Tienes dos formas de configurar tus credenciales:
 
 #### Método A: Desde el archivo `env.js`
-Abre [`env.js`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/env.js) y pega tus credenciales:
+Abre [`env.js`](file:///C:/Users/alena/Desktop/gestor-financiero/env.js) y pega tus credenciales:
 ```javascript
 window.ENV = {
   SUPABASE_URL: 'https://tu-proyecto.supabase.co',
@@ -39,50 +85,22 @@ window.ENV = {
 };
 ```
 
-#### Método B: Directamente desde la aplicación (Sin editar archivos)
+#### Método B: Directamente desde la aplicación
 1. Abre `index.html` en tu navegador.
-2. En la pantalla de Login, toca el botón **"⚙️ Configurar conexión Supabase"**.
-3. Pega tu URL y tu Anon Key y haz clic en **"Guardar y Conectar"**.
-4. Tus credenciales se guardarán de forma segura en tu navegador.
+2. Presiona el botón amarillo **"⚙️ Configurar Credenciales Ahora"** (o "Configurar conexión Supabase").
+3. Pega tu Project URL y tu Anon Key y haz clic en **"Guardar y Conectar"**.
 
 ---
 
-### 4. Cómo ejecutar la aplicación localmente
-* Haz doble clic sobre [`index.html`](file:///C:/Users/alena/.gemini/antigravity/scratch/gestor-financiero/index.html) para abrirla en cualquier navegador.
-* Para probar la vista móvil desde tu PC, presiona `F12` y activa la vista de teléfono móvil (`Ctrl + Shift + M`).
+### 6. Subir los Cambios a GitHub y Desplegar en Vercel
 
----
+Ejecuta estos comandos en tu terminal de PowerShell en `C:\Users\alena\Desktop\gestor-financiero`:
 
-### 5. Cómo subirla a GitHub y desplegarla en Vercel
-
-#### Paso A: Subir a GitHub
-```bash
-git init
+```powershell
 git add .
-git commit -m "feat: versión 2 con Supabase Auth, Cloud Sync y RLS"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/gestor-financiero.git
-git push -u origin main
+git commit -m "feat: optimización de auth, sanitización de credenciales y soporte smtp"
+git pull origin main --rebase
+git push origin main
 ```
 
-#### Paso B: Desplegar en Vercel
-1. Entra a [vercel.com](https://vercel.com) e inicia sesión.
-2. Haz clic en **"Add New..."** → **"Project"** e importa tu repositorio de GitHub.
-3. En **Framework Preset**, déjalo como **Other** (sitio estático).
-4. Haz clic en **"Deploy"**.
-5. ¡Listo! Tendrás tu enlace HTTPS público para abrir desde tu celular 1, celular 2 o computadora.
-
----
-
-## 🔒 Características de Seguridad y Sincronización
-
-* 👤 **Supabase Auth**: Inicio de sesión persistente, registro de nuevas cuentas y recuperación de contraseña por email.
-* 🛡️ **Row Level Security (RLS)**: Cada consulta a la base de datos se filtra automáticamente por `auth.uid() = user_id`. Ningún usuario puede ver ni modificar datos de otros.
-* 🔄 **Sincronización Multi-dispositivo**: Cualquier movimiento registrado en un teléfono se sincroniza instantáneamente con tus otros dispositivos al iniciar sesión.
-* ⚡ **Indicador de Sincronización en Vivo**: En la cabecera puedes ver el estado en todo momento:
-  * `● Sincronizado` (Verde)
-  * `● Sincronizando...` (Azul animado)
-  * `● Sin conexión` (Ámbar)
-  * `● Error de sincronización` (Rojo)
-* 📥 **Asistente de Migración 1-Click**: Si tenías datos guardados en la versión anterior (V1) en este dispositivo, la app te ofrecerá subirlos automáticamente a tu nueva cuenta en la nube sin duplicados.
-* 📴 **100% Funcional Offline**: Si te quedas sin conexión, la app guarda tus cambios localmente en IndexedDB y los sincroniza al volver a tener internet.
+Una vez ejecutado, Vercel detectará el push y desplegará la versión actualizada automáticamente en pocos segundos.
