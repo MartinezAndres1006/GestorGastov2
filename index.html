@@ -1,0 +1,4052 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Gestor Financiero Personal | Finanzas Mobile V2</title>
+  <meta name="description" content="Aplicación de finanzas personales mobile-first con sincronización en la nube (Supabase), autenticación segura y persistencia local offline.">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Supabase JS Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
+  <!-- Chart.js para analítica interactiva -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Archivo de Variables de Entorno (Opcional) -->
+  <script src="env.js" onerror="console.log('env.js no encontrado, usando configuración local o UI.')"></script>
+
+  <style>
+    /* ==========================================================================
+       01. VARIABLES DE DISEÑO & RESET (CSS TOKENS)
+       ========================================================================== */
+    :root {
+      --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      
+      /* Paleta de Colores Moderna y Elegante */
+      --bg-app: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --bg-subtle-hover: #e2e8f0;
+      
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-subtle: #94a3b8;
+      
+      --brand-primary: #0f172a;
+      --brand-primary-light: #1e293b;
+      --brand-accent: #2563eb;
+      --brand-accent-subtle: #eff6ff;
+      
+      --color-income: #10b981;
+      --color-income-subtle: #ecfdf5;
+      --color-expense: #ef4444;
+      --color-expense-subtle: #fef2f2;
+      --color-transfer: #6366f1;
+      --color-transfer-subtle: #eef2ff;
+      --color-warning: #f59e0b;
+      --color-warning-subtle: #fffbeb;
+      --color-info: #0284c7;
+      --color-info-subtle: #f0f9ff;
+      
+      --border-color: #e2e8f0;
+      --border-focus: #0f172a;
+      
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 12px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+      --shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.12), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+      --shadow-sheet: 0 -8px 30px rgba(15, 23, 42, 0.15);
+      
+      --nav-height: 64px;
+      --header-height: 56px;
+      --safe-bottom: env(safe-area-inset-bottom, 12px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      font-family: var(--font-family);
+      background-color: #0b0f19;
+      color: var(--text-main);
+      height: 100%;
+      overflow: hidden;
+      font-size: 15px;
+      line-height: 1.4;
+      user-select: none;
+    }
+
+    /* Contenedor Responsivo: Mobile First con marco centrado en Desktop */
+    #app-viewport {
+      max-width: 440px;
+      height: 100dvh;
+      margin: 0 auto;
+      background-color: var(--bg-app);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Scrollbars elegantes */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    /* ==========================================================================
+       02. HEADER SUPERIOR Y INDICADOR DE SINCRONIZACIÓN
+       ========================================================================== */
+    .app-header {
+      height: var(--header-height);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Indicador de Sincronización en Header */
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border-color);
+    }
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--color-income);
+    }
+    .sync-badge.synced .sync-dot { background: var(--color-income); }
+    .sync-badge.syncing .sync-dot { background: var(--brand-accent); animation: pulse 1s infinite; }
+    .sync-badge.offline .sync-dot { background: var(--color-warning); }
+    .sync-badge.error .sync-dot { background: var(--color-expense); }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
+    .month-selector {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-full);
+      padding: 2px 5px;
+      border: 1px solid var(--border-color);
+    }
+
+    .month-nav-btn {
+      background: none;
+      border: none;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: var(--radius-full);
+      color: var(--text-main);
+      transition: background 0.15s;
+    }
+    .month-nav-btn:hover { background: #e2e8f0; }
+
+    .month-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0 6px;
+      color: var(--text-main);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    /* ==========================================================================
+       03. PANTALLA DE AUTENTICACIÓN (LOGIN / REGISTRO / RECUPERACIÓN)
+       ========================================================================== */
+    #screen-auth {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg-app);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 24px 20px;
+    }
+
+    .auth-hero {
+      text-align: center;
+      margin-top: 20px;
+      margin-bottom: 24px;
+    }
+
+    .auth-logo {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-radius: var(--radius-lg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .auth-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .auth-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .auth-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .auth-tabs {
+      display: flex;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      margin-bottom: 18px;
+    }
+
+    .auth-tab-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: none;
+      background: transparent;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .auth-tab-btn.active {
+      background: #ffffff;
+      color: var(--brand-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .auth-alert {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .auth-alert.error { background: var(--color-expense-subtle); color: #991b1b; border: 1px solid #fecaca; display: block; }
+    .auth-alert.success { background: var(--color-income-subtle); color: #166534; border: 1px solid #bbf7d0; display: block; }
+
+    /* ==========================================================================
+       04. ÁREA DE CONTENIDO (PANTALLAS PRINCIPALES)
+       ========================================================================== */
+    .app-main {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-bottom: calc(var(--nav-height) + 24px + var(--safe-bottom));
+      scroll-behavior: smooth;
+    }
+
+    .screen-view {
+      display: none;
+      padding: 16px;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .screen-view.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Banner de Alertas Inteligentes */
+    .alerts-container {
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .alert-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      animation: slideIn 0.25s ease-out;
+      border: 1px solid transparent;
+    }
+
+    .alert-card.warning { background: var(--color-warning-subtle); color: #92400e; border-color: #fde68a; }
+    .alert-card.danger { background: var(--color-expense-subtle); color: #991b1b; border-color: #fecaca; }
+    .alert-card.info { background: var(--color-info-subtle); color: #075985; border-color: #bae6fd; }
+
+    .alert-icon { flex-shrink: 0; margin-top: 1px; }
+    .alert-content { flex: 1; }
+
+    /* Tarjetas Financieras */
+    .card {
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-action-btn {
+      font-size: 0.78rem;
+      color: var(--brand-accent);
+      background: none;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Hero Balance Card */
+    .hero-balance-card {
+      background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+      color: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-balance-card::after {
+      content: '';
+      position: absolute;
+      right: -30px;
+      top: -30px;
+      width: 130px;
+      height: 130px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, rgba(37, 99, 235, 0) 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .hero-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+
+    .hero-main-amount {
+      font-size: 1.95rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 4px;
+      line-height: 1.15;
+    }
+
+    .hero-sub-amount {
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .hero-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding-top: 14px;
+    }
+
+    .stat-box { display: flex; flex-direction: column; }
+    .stat-label {
+      font-size: 0.68rem;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .stat-value {
+      font-size: 0.92rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stat-value.income { color: #34d399; }
+    .stat-value.expense { color: #f87171; }
+    .stat-value.savings { color: #60a5fa; }
+
+    /* Cuentas en Carrusel Horizontal */
+    .horizontal-scroll-section {
+      margin: 0 -16px 14px -16px;
+      padding: 0 16px;
+      overflow-x: auto;
+      display: flex;
+      gap: 10px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .horizontal-scroll-section::-webkit-scrollbar { display: none; }
+
+    .account-pill-card {
+      scroll-snap-align: start;
+      flex: 0 0 160px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 84px;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .account-pill-card:active { transform: scale(0.98); }
+
+    .account-pill-header { display: flex; align-items: center; gap: 8px; }
+    .account-pill-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+    }
+    .account-pill-name {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-pill-balance {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-top: 6px;
+    }
+    .account-pill-currency {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Lista de Movimientos */
+    .transaction-date-divider {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 12px 0 6px 4px;
+    }
+
+    .transaction-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .transaction-item:active { background: var(--bg-subtle); }
+
+    .tx-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .tx-icon-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .tx-details { display: flex; flex-direction: column; min-width: 0; }
+    .tx-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tx-subtitle {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .tx-right { text-align: right; flex-shrink: 0; }
+    .tx-amount { font-size: 0.95rem; font-weight: 800; letter-spacing: -0.2px; }
+    .tx-amount.income { color: var(--color-income); }
+    .tx-amount.expense { color: var(--color-expense); }
+    .tx-amount.transfer { color: var(--color-transfer); }
+    .tx-account-name { font-size: 0.68rem; color: var(--text-subtle); font-weight: 600; margin-top: 2px; }
+
+    /* Barras de Progreso */
+    .progress-bar-bg {
+      height: 8px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.3s ease; }
+    .progress-bar-fill.normal { background: var(--color-income); }
+    .progress-bar-fill.warning { background: var(--color-warning); }
+    .progress-bar-fill.danger { background: var(--color-expense); }
+    .progress-bar-fill.brand { background: var(--brand-accent); }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ==========================================================================
+       05. NAVEGACIÓN INFERIOR & FAB
+       ========================================================================== */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: calc(var(--nav-height) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 30;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.03);
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+      gap: 3px;
+      transition: color 0.15s;
+    }
+    .nav-item.active { color: var(--text-main); }
+    .nav-icon { font-size: 1.25rem; line-height: 1; }
+
+    /* Botón Flotante "+" Centrado */
+    .fab-btn {
+      position: absolute;
+      left: 50%;
+      bottom: calc(var(--nav-height) - 18px + var(--safe-bottom));
+      transform: translateX(-50%);
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-full);
+      background: var(--brand-primary);
+      color: #ffffff;
+      border: 3px solid var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: var(--shadow-lg);
+      cursor: pointer;
+      z-index: 40;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .fab-btn:active { transform: translateX(-50%) scale(0.92); }
+
+    /* ==========================================================================
+       06. MODALES & BOTTOM SHEETS
+       ========================================================================== */
+    .modal-backdrop {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .modal-backdrop.open { display: block; opacity: 1; }
+
+    .bottom-sheet {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      max-height: 90dvh;
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 16px 18px calc(24px + var(--safe-bottom)) 18px;
+      box-shadow: var(--shadow-sheet);
+      z-index: 101;
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .bottom-sheet.open { transform: translateY(0); }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: #cbd5e1;
+      border-radius: 4px;
+      margin: 0 auto 12px auto;
+      flex-shrink: 0;
+    }
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .sheet-title { font-size: 1.1rem; font-weight: 800; color: var(--text-main); }
+    .sheet-close-btn {
+      background: var(--bg-subtle);
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    /* Formularios y Botones */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      height: 48px;
+      padding: 0 14px;
+      background: var(--bg-subtle);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius-md);
+      font-family: var(--font-family);
+      font-size: 0.95rem;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      background: #ffffff;
+      border-color: var(--brand-primary);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .amount-input-container {
+      background: var(--bg-subtle);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      border: 1.5px solid transparent;
+    }
+    .amount-input-container:focus-within {
+      background: #ffffff;
+      border-color: var(--brand-primary);
+    }
+    .amount-big-input {
+      border: none;
+      background: transparent;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-main);
+      width: 100%;
+      outline: none;
+    }
+
+    .btn-primary {
+      width: 100%;
+      height: 50px;
+      background: var(--brand-primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: var(--font-family);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-primary:active { transform: scale(0.98); background: #1e293b; }
+
+    .btn-secondary {
+      width: 100%;
+      height: 46px;
+      background: var(--bg-subtle);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-family: var(--font-family);
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .btn-danger-outline {
+      background: transparent;
+      border: 1px solid #fca5a5;
+      color: var(--color-expense);
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 8px 14px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+    }
+
+    .filter-pills { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px 0; }
+    .filter-pills::-webkit-scrollbar { display: none; }
+    .filter-pill {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .filter-pill.active { background: var(--brand-primary); color: #ffffff; border-color: var(--brand-primary); }
+
+    .type-segmented-control {
+      display: flex;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      margin-bottom: 16px;
+      gap: 4px;
+    }
+    .segment-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: none;
+      background: transparent;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: center;
+    }
+    .segment-btn.active { background: #ffffff; color: var(--brand-primary); box-shadow: var(--shadow-sm); }
+    .segment-btn.active.expense { color: var(--color-expense); }
+    .segment-btn.active.income { color: var(--color-income); }
+    .segment-btn.active.transfer { color: var(--color-transfer); }
+
+    /* Toast Notification */
+    #toast-notification {
+      position: absolute;
+      top: 16px; left: 50%;
+      transform: translateX(-50%) translateY(-60px);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: var(--radius-full);
+      font-size: 0.85rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #toast-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    .management-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: var(--radius-full); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+    .badge-ars { background: #dcfce7; color: #166534; }
+    .badge-usd { background: #e0f2fe; color: #0369a1; }
+    .badge-cuotas { background: #fef3c7; color: #92400e; }
+
+    .empty-state { text-align: center; padding: 36px 16px; color: var(--text-muted); }
+    .empty-state-icon { font-size: 2.5rem; margin-bottom: 8px; opacity: 0.6; }
+    .empty-state-title { font-weight: 700; font-size: 1rem; color: var(--text-main); margin-bottom: 4px; }
+    .empty-state-text { font-size: 0.82rem; max-width: 240px; margin: 0 auto; }
+    .chart-container-box { position: relative; height: 220px; width: 100%; margin: 8px 0; }
+    .snapshot-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border-color); font-size: 0.85rem; }
+    .snapshot-row:last-child { border-bottom: none; }
+    .snapshot-row .label { color: var(--text-muted); }
+    .snapshot-row .val { font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <!-- VIEWPORT PRINCIPAL MOBILE-FIRST -->
+  <div id="app-viewport">
+
+    <!-- PANTALLA DE AUTENTICACIÓN (LOGIN / REGISTRO / RECUPERACIÓN) -->
+    <div id="screen-auth" style="display: none;">
+      <div class="auth-hero">
+        <div class="auth-logo">💳</div>
+        <h1 class="auth-title">Finanzas Personales</h1>
+        <p class="auth-subtitle">Accede a tus datos desde cualquier dispositivo</p>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button class="auth-tab-btn active" id="tab-auth-login" onclick="AuthModule.setMode('login')">Iniciar Sesión</button>
+          <button class="auth-tab-btn" id="tab-auth-register" onclick="AuthModule.setMode('register')">Registrarse</button>
+          <button class="auth-tab-btn" id="tab-auth-forgot" onclick="AuthModule.setMode('forgot')">Recuperar</button>
+        </div>
+
+        <div id="auth-alert-box" class="auth-alert"></div>
+
+        <form id="auth-form" onsubmit="AuthModule.handleSubmit(event)">
+          <div class="form-group" id="auth-group-name" style="display: none;">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" id="auth-name" class="form-input" placeholder="Tu nombre">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Correo Electrónico</label>
+            <input type="email" id="auth-email" class="form-input" placeholder="nombre@correo.com" required inputmode="email">
+          </div>
+
+          <div class="form-group" id="auth-group-password">
+            <label class="form-label">Contraseña</label>
+            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required minlength="6">
+          </div>
+
+          <button type="submit" class="btn-primary" id="auth-submit-btn" style="margin-top: 8px;">
+            <span id="auth-btn-text">Ingresar a mi Cuenta</span>
+          </button>
+        </form>
+
+        <div style="margin-top: 16px; text-align: center;">
+          <button class="card-action-btn" onclick="SupabaseConfigModule.openConfigModal()">⚙️ Configurar conexión Supabase</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEADER SUPERIOR -->
+    <header class="app-header">
+      <div class="brand-title">
+        <span>Finanzas</span>
+        <!-- Indicador de Sincronización -->
+        <div class="sync-badge synced" id="sync-indicator" onclick="SyncService.syncAll(true)" title="Estado de sincronización (Click para forzar)">
+          <span class="sync-dot"></span>
+          <span id="sync-text">Sincronizado</span>
+        </div>
+      </div>
+
+      <!-- Selector Rápido de Mes -->
+      <div class="month-selector">
+        <button class="month-nav-btn" id="btn-prev-month" title="Mes anterior">◀</button>
+        <span class="month-label" id="current-month-display" title="Cambiar mes">Agosto 2026</span>
+        <button class="month-nav-btn" id="btn-next-month" title="Mes siguiente">▶</button>
+      </div>
+    </header>
+
+    <!-- NOTIFICACIÓN FLOTANTE (TOAST) -->
+    <div id="toast-notification">
+      <span id="toast-icon">✓</span>
+      <span id="toast-text">Acción completada</span>
+    </div>
+
+    <!-- CONTENEDOR DE PANTALLAS -->
+    <main class="app-main">
+
+      <!-- ====================================================================
+           PANTALLA 1: DASHBOARD (INICIO)
+           ==================================================================== -->
+      <section id="screen-dashboard" class="screen-view active">
+        <!-- Alertas Inteligentes -->
+        <div id="dashboard-alerts" class="alerts-container"></div>
+
+        <!-- Hero Balance Total -->
+        <div class="hero-balance-card">
+          <div class="hero-label">Patrimonio Neto Total</div>
+          <div class="hero-main-amount" id="dash-total-networth-ars">$ 0</div>
+          <div class="hero-sub-amount" id="dash-total-networth-usd">≈ USD 0 &bull; TC: $ 1.500</div>
+
+          <div class="hero-stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">Ingresos</span>
+              <span class="stat-value income" id="dash-month-income">+$ 0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Gastos</span>
+              <span class="stat-value expense" id="dash-month-expense">-$ 0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Ahorro</span>
+              <span class="stat-value savings" id="dash-month-savings">$ 0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cuentas / Dinero Disponible (Carrusel Horizontal) -->
+        <div class="card-header" style="margin-bottom: 6px;">
+          <span class="card-title">Dinero Disponible</span>
+          <button class="card-action-btn" onclick="AppNavigation.switchTab('more', 'accounts')">Gestionar</button>
+        </div>
+        <div class="horizontal-scroll-section" id="dash-accounts-scroll"></div>
+
+        <!-- Presupuesto del Mes (Top Resumen) -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Presupuesto del Mes</span>
+            <button class="card-action-btn" onclick="AppNavigation.switchTab('budgets')">Ver Todos</button>
+          </div>
+          <div id="dash-budgets-preview"></div>
+        </div>
+
+        <!-- Próximos Pagos & Compromisos -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Próximos Vencimientos</span>
+            <button class="card-action-btn" onclick="AppNavigation.switchTab('more', 'cards')">Tarjetas</button>
+          </div>
+          <div id="dash-upcoming-dues"></div>
+        </div>
+
+        <!-- Objetivos Activos -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Metas de Ahorro</span>
+            <button class="card-action-btn" onclick="AppNavigation.switchTab('goals')">Explorar</button>
+          </div>
+          <div id="dash-goals-preview"></div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           PANTALLA 2: MOVIMIENTOS
+           ==================================================================== -->
+      <section id="screen-movements" class="screen-view">
+        <div class="card" style="padding: 12px; margin-bottom: 10px;">
+          <input type="search" id="tx-search-input" class="form-input" style="height: 40px; margin-bottom: 8px;" placeholder="🔍 Buscar por descripción o nota...">
+          
+          <div class="filter-pills" id="tx-type-filters">
+            <button class="filter-pill active" data-filter="all">Todos</button>
+            <button class="filter-pill" data-filter="expense">Gastos</button>
+            <button class="filter-pill" data-filter="income">Ingresos</button>
+            <button class="filter-pill" data-filter="transfer">Transferencias</button>
+            <button class="filter-pill" data-filter="card_payment">Tarjetas</button>
+            <button class="filter-pill" data-filter="loan_payment">Préstamos</button>
+          </div>
+        </div>
+
+        <!-- Listado Agrupado de Movimientos -->
+        <div id="transactions-list-container"></div>
+      </section>
+
+      <!-- ====================================================================
+           PANTALLA 3: PRESUPUESTOS
+           ==================================================================== -->
+      <section id="screen-budgets" class="screen-view">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Control Presupuestario</span>
+            <button class="card-action-btn" id="btn-copy-previous-budget">Copiar Mes Anterior</button>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Define límites de gasto por categoría para el mes activo y evita desvíos financieros.
+          </p>
+          <button class="btn-secondary" onclick="BudgetsModule.openCreateBudgetModal()" style="margin-top: 0; margin-bottom: 12px;">
+            + Asignar Presupuesto a Categoría
+          </button>
+
+          <div id="budgets-full-list"></div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           PANTALLA 4: OBJETIVOS
+           ==================================================================== -->
+      <section id="screen-goals" class="screen-view">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Metas Financieras</span>
+            <button class="card-action-btn" onclick="GoalsModule.openCreateGoalModal()">+ Nuevo Objetivo</button>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
+            Ahorra para tu fondo de emergencia, viajes o compras importantes.
+          </p>
+
+          <div id="goals-full-list"></div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           PANTALLA 5: MÁS (HUB DE SERVICIOS & CONFIGURACIÓN)
+           ==================================================================== -->
+      <section id="screen-more" class="screen-view">
+        <!-- Perfil de Usuario Logueado -->
+        <div class="card" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">👤</div>
+            <div>
+              <div id="user-display-email" style="font-weight: 700; font-size: 0.85rem; color: var(--text-main);">usuario@ejemplo.com</div>
+              <div style="font-size: 0.72rem; color: var(--color-income); font-weight: 600;">● Sesión Activa en la Nube</div>
+            </div>
+          </div>
+          <button class="btn-danger-outline" style="padding: 4px 10px; font-size: 0.75rem;" onclick="AuthModule.signOut()">Salir</button>
+        </div>
+
+        <!-- Sub-navegación -->
+        <div class="type-segmented-control" id="more-subnav" style="margin-bottom: 14px;">
+          <button class="segment-btn active" data-subtab="cards">Tarjetas</button>
+          <button class="segment-btn" data-subtab="loans">Préstamos</button>
+          <button class="segment-btn" data-subtab="recurring">Recurrentes</button>
+          <button class="segment-btn" data-subtab="analytics">Gráficas</button>
+          <button class="segment-btn" data-subtab="closing">Cierre</button>
+          <button class="segment-btn" data-subtab="settings">Ajustes</button>
+        </div>
+
+        <!-- Subsección: Tarjetas de Crédito -->
+        <div id="subtab-cards" class="more-subview">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Tarjetas de Crédito</span>
+              <button class="card-action-btn" onclick="CardsModule.openCreateCardModal()">+ Nueva Tarjeta</button>
+            </div>
+            <div id="cards-list-container"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Compras en Cuotas Activas</span>
+              <button class="card-action-btn" onclick="TransactionsModule.openQuickModal('card_purchase')">+ Registrar Compra</button>
+            </div>
+            <div id="card-purchases-list-container"></div>
+          </div>
+        </div>
+
+        <!-- Subsección: Préstamos & Deudas -->
+        <div id="subtab-loans" class="more-subview" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Préstamos y Deudas</span>
+              <button class="card-action-btn" onclick="LoansModule.openCreateLoanModal()">+ Nuevo Préstamo</button>
+            </div>
+            <div id="loans-list-container"></div>
+          </div>
+        </div>
+
+        <!-- Subsección: Gastos Recurrentes -->
+        <div id="subtab-recurring" class="more-subview" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Gastos e Ingresos Fijos</span>
+              <button class="card-action-btn" onclick="RecurringModule.openCreateRecurringModal()">+ Crear Recurrente</button>
+            </div>
+            <button class="btn-secondary" onclick="RecurringModule.processRecurringNow()" style="margin-top: 0; margin-bottom: 12px;">
+              ⚡ Procesar Recurrentes del Mes
+            </button>
+            <div id="recurring-list-container"></div>
+          </div>
+        </div>
+
+        <!-- Subsección: Gráficas & Analítica -->
+        <div id="subtab-analytics" class="more-subview" style="display: none;">
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 10px;">Ingresos vs Gastos Mensuales</span>
+            <div class="chart-container-box">
+              <canvas id="chart-income-expenses"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 10px;">Gastos por Categoría</span>
+            <div class="chart-container-box">
+              <canvas id="chart-categories-donut"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 10px;">Distribución por Cuenta</span>
+            <div class="chart-container-box">
+              <canvas id="chart-accounts-pie"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subsección: Cierre Mensual -->
+        <div id="subtab-closing" class="more-subview" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title" id="closing-month-title">Cierre Financiero</span>
+            </div>
+            <div id="closing-summary-details"></div>
+          </div>
+        </div>
+
+        <!-- Subsección: Configuración & Backup -->
+        <div id="subtab-settings" class="more-subview" style="display: none;">
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 12px;">Tipo de Cambio para Equivalencias</span>
+            <div class="form-group">
+              <label class="form-label">1 USD en Pesos Argentinos (ARS)</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="number" id="setting-usd-rate" class="form-input" value="1500" step="10">
+                <button class="btn-primary" style="width: auto; padding: 0 16px;" onclick="SettingsModule.saveExchangeRate()">Guardar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 12px;">Gestión de Cuentas y Categorías</span>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn-secondary" onclick="AccountsModule.openCreateAccountModal()">+ Crear Nueva Cuenta</button>
+              <button class="btn-secondary" onclick="SettingsModule.openCategoriesModal()">🏷️ Administrar Categorías</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 12px;">Conexión a Supabase & Sincronización</span>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+              Tus datos están protegidos en la nube de Supabase con seguridad Row Level Security (RLS).
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn-secondary" onclick="SyncService.syncAll(true)">🔄 Sincronizar Ahora con Supabase</button>
+              <button class="btn-secondary" onclick="SupabaseConfigModule.openConfigModal()">⚙️ Configurar Credenciales Supabase</button>
+              <button class="btn-secondary" onclick="MigrationModule.checkAndOfferMigration(true)">📥 Migrar Datos Locales a mi Cuenta</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-title" style="margin-bottom: 12px;">Copias de Seguridad (Backup)</span>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn-secondary" onclick="BackupModule.exportDataJSON()">📥 Exportar Backup Completo (JSON)</button>
+              <button class="btn-secondary" onclick="document.getElementById('import-file-input').click()">📤 Importar Backup (JSON)</button>
+              <input type="file" id="import-file-input" accept=".json" style="display: none;" onchange="BackupModule.importDataJSON(event)">
+              <button class="btn-secondary" onclick="DemoDataModule.loadDemoData()" style="color: var(--color-info);">✨ Cargar Datos de Ejemplo</button>
+              <button class="btn-danger-outline" onclick="BackupModule.wipeAllData()">⚠️ Eliminar Todos Mis Datos</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- BOTÓN FLOTANTE "+" REGISTRO RÁPIDO -->
+    <button class="fab-btn" id="fab-add-btn" title="Registrar nuevo movimiento" onclick="TransactionsModule.openQuickModal()">+</button>
+
+    <!-- NAVEGACIÓN INFERIOR FIJA -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-screen="dashboard" onclick="AppNavigation.switchTab('dashboard')">
+        <span class="nav-icon">📊</span>
+        <span>Inicio</span>
+      </button>
+      <button class="nav-item" data-screen="movements" onclick="AppNavigation.switchTab('movements')">
+        <span class="nav-icon">💸</span>
+        <span>Movimientos</span>
+      </button>
+      <div style="flex: 0.8;"></div>
+      <button class="nav-item" data-screen="budgets" onclick="AppNavigation.switchTab('budgets')">
+        <span class="nav-icon">🎯</span>
+        <span>Presupuesto</span>
+      </button>
+      <button class="nav-item" data-screen="goals" onclick="AppNavigation.switchTab('goals')">
+        <span class="nav-icon">🏆</span>
+        <span>Objetivos</span>
+      </button>
+      <button class="nav-item" data-screen="more" onclick="AppNavigation.switchTab('more')">
+        <span class="nav-icon">⚙️</span>
+        <span>Más</span>
+      </button>
+    </nav>
+
+    <!-- ====================================================================
+         BOTTOM SHEET: REGISTRO RÁPIDO DE TRANSACCIONES
+         ==================================================================== -->
+    <div class="modal-backdrop" id="tx-modal-backdrop" onclick="TransactionsModule.closeQuickModal(event)">
+      <div class="bottom-sheet" id="tx-bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="tx-modal-title">Registrar Movimiento</h3>
+          <button class="sheet-close-btn" onclick="TransactionsModule.closeQuickModal()">✕</button>
+        </div>
+
+        <div class="type-segmented-control" id="tx-type-segments">
+          <button class="segment-btn active expense" type="button" onclick="TransactionsModule.setType('expense')">Gasto</button>
+          <button class="segment-btn" type="button" onclick="TransactionsModule.setType('income')">Ingreso</button>
+          <button class="segment-btn" type="button" onclick="TransactionsModule.setType('transfer')">Transferencia</button>
+          <button class="segment-btn" type="button" onclick="TransactionsModule.setType('card_purchase')">Tarjeta</button>
+        </div>
+
+        <form id="tx-form" onsubmit="TransactionsModule.saveTransaction(event)">
+          <input type="hidden" id="tx-id" value="">
+          <input type="hidden" id="tx-current-type" value="expense">
+
+          <div class="amount-input-container">
+            <select id="tx-currency" class="form-select" style="width: 85px; height: 38px; font-weight: 800; padding: 0 6px;">
+              <option value="ARS">ARS $</option>
+              <option value="USD">USD $</option>
+            </select>
+            <input type="number" step="any" min="0.01" id="tx-amount" class="amount-big-input" placeholder="0.00" required inputmode="decimal">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Descripción / Comercio</label>
+            <input type="text" id="tx-description" class="form-input" placeholder="Ej: Supermercado, Alquiler, Sueldo..." required>
+          </div>
+
+          <div id="tx-fields-standard">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" id="tx-category-label">Categoría</label>
+                <select id="tx-category" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" id="tx-account-label">Cuenta</label>
+                <select id="tx-account" class="form-select"></select>
+              </div>
+            </div>
+          </div>
+
+          <div id="tx-fields-transfer" style="display: none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Cuenta Origen</label>
+                <select id="tx-from-account" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cuenta Destino</label>
+                <select id="tx-to-account" class="form-select"></select>
+              </div>
+            </div>
+          </div>
+
+          <div id="tx-fields-card-purchase" style="display: none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tarjeta de Crédito</label>
+                <select id="tx-card-select" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Plan de Cuotas</label>
+                <select id="tx-installments" class="form-select">
+                  <option value="1">1 pago (Contado)</option>
+                  <option value="2">2 cuotas</option>
+                  <option value="3">3 cuotas</option>
+                  <option value="6">6 cuotas</option>
+                  <option value="9">9 cuotas</option>
+                  <option value="12">12 cuotas</option>
+                  <option value="18">18 cuotas</option>
+                  <option value="24">24 cuotas</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Fecha</label>
+              <input type="date" id="tx-date" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notas (Opcional)</label>
+              <input type="text" id="tx-notes" class="form-input" placeholder="Detalles adicionales">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btn-save-tx" style="margin-top: 6px;">Guardar Movimiento</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL GENÉRICO DINÁMICO -->
+    <div class="modal-backdrop" id="generic-modal-backdrop" onclick="UIModule.closeGenericModal(event)">
+      <div class="bottom-sheet" id="generic-bottom-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="generic-modal-title">Título Modal</h3>
+          <button class="sheet-close-btn" onclick="UIModule.closeGenericModal()">✕</button>
+        </div>
+        <div id="generic-modal-body"></div>
+      </div>
+    </div>
+
+  </div> <!-- FIN #app-viewport -->
+
+  <!-- ==========================================================================
+       07. JAVASCRIPT MODULAR Y ESTRUCTURADO (V2 - SUPABASE + INDEXEDDB)
+       ========================================================================== -->
+  <script>
+    /**
+     * GESTOR FINANCIERO PERSONAL V2
+     * Arquitectura Híbrida: Supabase Auth & PostgreSQL Cloud + IndexedDB Local Cache
+     */
+
+    // =========================================================================
+    // 01. CONFIGURACIÓN & CONSTANTES
+    // =========================================================================
+    const CONFIG = {
+      DB_NAME: 'GestorFinancieroDB_V2',
+      DB_VERSION: 1,
+      DEFAULT_PRIMARY_CURRENCY: 'ARS',
+      DEFAULT_SECONDARY_CURRENCY: 'USD',
+      DEFAULT_EXCHANGE_RATE: 1500,
+      
+      DEFAULT_CATEGORIES: [
+        { id: 'cat_alim', name: 'Alimentación', icon: '🛒', color: '#10b981', type: 'expense' },
+        { id: 'cat_trans', name: 'Transporte', icon: '🚗', color: '#3b82f6', type: 'expense' },
+        { id: 'cat_viv', name: 'Vivienda', icon: '🏠', color: '#8b5cf6', type: 'expense' },
+        { id: 'cat_serv', name: 'Servicios', icon: '💡', color: '#f59e0b', type: 'expense' },
+        { id: 'cat_entret', name: 'Entretenimiento', icon: '🎬', color: '#ec4899', type: 'expense' },
+        { id: 'cat_salud', name: 'Salud', icon: '💊', color: '#ef4444', type: 'expense' },
+        { id: 'cat_educ', name: 'Educación', icon: '📚', color: '#06b6d4', type: 'expense' },
+        { id: 'cat_compras', name: 'Compras', icon: '🛍️', color: '#f97316', type: 'expense' },
+        { id: 'cat_suscrip', name: 'Suscripciones', icon: '📺', color: '#6366f1', type: 'expense' },
+        { id: 'cat_deudas', name: 'Deudas', icon: '💳', color: '#64748b', type: 'expense' },
+        { id: 'cat_otros_exp', name: 'Otros Gastos', icon: '📦', color: '#94a3b8', type: 'expense' },
+        
+        { id: 'cat_sueldo', name: 'Sueldo', icon: '💼', color: '#10b981', type: 'income' },
+        { id: 'cat_freelance', name: 'Freelance', icon: '💻', color: '#06b6d4', type: 'income' },
+        { id: 'cat_ventas', name: 'Ventas', icon: '🏷️', color: '#f59e0b', type: 'income' },
+        { id: 'cat_otros_inc', name: 'Otros Ingresos', icon: '💵', color: '#8b5cf6', type: 'income' }
+      ],
+
+      DEFAULT_ACCOUNTS: [
+        { id: 'acc_banco_ars', name: 'Cuenta Banco (ARS)', type: 'bank', currency: 'ARS', initialBalance: 0, color: '#3b82f6', icon: '🏦', isActive: true },
+        { id: 'acc_mp', name: 'Mercado Pago', type: 'wallet', currency: 'ARS', initialBalance: 0, color: '#06b6d4', icon: '📱', isActive: true },
+        { id: 'acc_cash_ars', name: 'Efectivo (ARS)', type: 'cash', currency: 'ARS', initialBalance: 0, color: '#10b981', icon: '💵', isActive: true },
+        { id: 'acc_usd', name: 'Cuenta Dólares (USD)', type: 'usd', currency: 'USD', initialBalance: 0, color: '#8b5cf6', icon: '💲', isActive: true }
+      ]
+    };
+
+    // =========================================================================
+    // 02. CLIENTE SUPABASE & CONFIGURACIÓN
+    // =========================================================================
+    const SupabaseService = {
+      client: null,
+
+      init() {
+        const url = (window.ENV && window.ENV.SUPABASE_URL) || localStorage.getItem('supabase_url') || '';
+        const key = (window.ENV && window.ENV.SUPABASE_ANON_KEY) || localStorage.getItem('supabase_anon_key') || '';
+
+        if (url && key && window.supabase) {
+          try {
+            this.client = window.supabase.createClient(url, key, {
+              auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+              }
+            });
+            return true;
+          } catch (e) {
+            console.error('Error al inicializar Supabase:', e);
+          }
+        }
+        return false;
+      },
+
+      isConfigured() {
+        return !!this.client;
+      }
+    };
+
+    // =========================================================================
+    // 03. CAPA DE AUTENTICACIÓN (SUPABASE AUTH)
+    // =========================================================================
+    const AuthModule = {
+      currentUser: null,
+      mode: 'login', // 'login', 'register', 'forgot'
+
+      async init() {
+        if (!SupabaseService.isConfigured()) {
+          this.showAuthScreen();
+          this.showAlert('Configura las credenciales de Supabase para iniciar sesión.', 'error');
+          return;
+        }
+
+        // Escuchar cambios de sesión en tiempo real
+        SupabaseService.client.auth.onAuthStateChange(async (event, session) => {
+          if (session && session.user) {
+            this.currentUser = session.user;
+            this.onUserLoggedIn();
+          } else {
+            this.currentUser = null;
+            this.showAuthScreen();
+          }
+        });
+
+        // Verificar sesión existente
+        const { data: { session } } = await SupabaseService.client.auth.getSession();
+        if (session && session.user) {
+          this.currentUser = session.user;
+          this.onUserLoggedIn();
+        } else {
+          this.showAuthScreen();
+        }
+      },
+
+      showAuthScreen() {
+        document.getElementById('screen-auth').style.display = 'flex';
+        document.querySelector('.app-header').style.display = 'none';
+        document.querySelector('.bottom-nav').style.display = 'none';
+        document.getElementById('fab-add-btn').style.display = 'none';
+      },
+
+      hideAuthScreen() {
+        document.getElementById('screen-auth').style.display = 'none';
+        document.querySelector('.app-header').style.display = 'flex';
+        document.querySelector('.bottom-nav').style.display = 'flex';
+        document.getElementById('fab-add-btn').style.display = 'flex';
+      },
+
+      setMode(mode) {
+        this.mode = mode;
+        this.clearAlert();
+        
+        document.getElementById('tab-auth-login').classList.toggle('active', mode === 'login');
+        document.getElementById('tab-auth-register').classList.toggle('active', mode === 'register');
+        document.getElementById('tab-auth-forgot').classList.toggle('active', mode === 'forgot');
+
+        const nameGroup = document.getElementById('auth-group-name');
+        const passGroup = document.getElementById('auth-group-password');
+        const submitBtnText = document.getElementById('auth-btn-text');
+
+        if (mode === 'register') {
+          nameGroup.style.display = 'block';
+          passGroup.style.display = 'block';
+          submitBtnText.innerText = 'Crear mi Cuenta';
+        } else if (mode === 'forgot') {
+          nameGroup.style.display = 'none';
+          passGroup.style.display = 'none';
+          submitBtnText.innerText = 'Enviar Enlace de Recuperación';
+        } else {
+          nameGroup.style.display = 'none';
+          passGroup.style.display = 'block';
+          submitBtnText.innerText = 'Ingresar a mi Cuenta';
+        }
+      },
+
+      showAlert(msg, type = 'error') {
+        const box = document.getElementById('auth-alert-box');
+        box.innerText = msg;
+        box.className = `auth-alert ${type}`;
+      },
+
+      clearAlert() {
+        const box = document.getElementById('auth-alert-box');
+        box.className = 'auth-alert';
+        box.innerText = '';
+      },
+
+      async handleSubmit(event) {
+        event.preventDefault();
+        this.clearAlert();
+
+        if (!SupabaseService.isConfigured()) {
+          SupabaseConfigModule.openConfigModal();
+          return;
+        }
+
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const fullName = document.getElementById('auth-name').value.trim();
+        const submitBtn = document.getElementById('auth-submit-btn');
+
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+
+        try {
+          if (this.mode === 'login') {
+            const { data, error } = await SupabaseService.client.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            UIModule.showToast('¡Bienvenido de vuelta!', '👋');
+          } else if (this.mode === 'register') {
+            const { data, error } = await SupabaseService.client.auth.signUp({
+              email,
+              password,
+              options: { data: { full_name: fullName } }
+            });
+            if (error) throw error;
+            this.showAlert('¡Cuenta creada! Revisa tu correo si requiere confirmación o ingresa directamente.', 'success');
+            UIModule.showToast('Cuenta creada exitosamente', '✓');
+          } else if (this.mode === 'forgot') {
+            const { error } = await SupabaseService.client.auth.resetPasswordForEmail(email);
+            if (error) throw error;
+            this.showAlert('Te enviamos un correo para restablecer tu contraseña.', 'success');
+          }
+        } catch (err) {
+          console.error(err);
+          const errorMsg = err.message === 'Invalid login credentials' ? 'Credenciales incorrectas. Verifica tu email y contraseña.' : (err.message || 'Error de autenticación.');
+          this.showAlert(errorMsg, 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+        }
+      },
+
+      async signOut() {
+        if (confirm('¿Deseas cerrar tu sesión actual?')) {
+          if (SupabaseService.client) {
+            await SupabaseService.client.auth.signOut();
+          }
+          this.currentUser = null;
+          this.showAuthScreen();
+          UIModule.showToast('Sesión cerrada', '🔒');
+        }
+      },
+
+      async onUserLoggedIn() {
+        this.hideAuthScreen();
+        document.getElementById('user-display-email').innerText = this.currentUser.email || 'Mi Cuenta';
+        
+        // Sincronizar y cargar datos desde Supabase
+        await SyncService.syncAll();
+        // Verificar si existen datos locales para migrar
+        await MigrationModule.checkAndOfferMigration();
+      }
+    };
+
+    // =========================================================================
+    // 04. CONFIGURADOR DE CREDENCIALES SUPABASE (UI MODAL)
+    // =========================================================================
+    const SupabaseConfigModule = {
+      openConfigModal() {
+        const curUrl = localStorage.getItem('supabase_url') || (window.ENV && window.ENV.SUPABASE_URL) || '';
+        const curKey = localStorage.getItem('supabase_anon_key') || (window.ENV && window.ENV.SUPABASE_ANON_KEY) || '';
+
+        const body = `
+          <form onsubmit="SupabaseConfigModule.saveConfig(event)">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
+              Ingresa los datos de tu proyecto de Supabase (Settings → API).
+            </p>
+            <div class="form-group">
+              <label class="form-label">Project URL</label>
+              <input type="url" id="cfg-supabase-url" class="form-input" value="${curUrl}" placeholder="https://tu-proyecto.supabase.co" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Anon / Public API Key</label>
+              <input type="text" id="cfg-supabase-key" class="form-input" value="${curKey}" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." required>
+            </div>
+            <button type="submit" class="btn-primary">Guardar y Conectar</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Configuración de Supabase', body);
+      },
+
+      saveConfig(event) {
+        event.preventDefault();
+        const url = document.getElementById('cfg-supabase-url').value.trim();
+        const key = document.getElementById('cfg-supabase-key').value.trim();
+
+        localStorage.setItem('supabase_url', url);
+        localStorage.setItem('supabase_anon_key', key);
+
+        if (window.ENV) {
+          window.ENV.SUPABASE_URL = url;
+          window.ENV.SUPABASE_ANON_KEY = key;
+        }
+
+        SupabaseService.init();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Credenciales guardadas', '✓');
+
+        // Reintentar autenticación o refresco
+        AuthModule.init();
+      }
+    };
+
+    // =========================================================================
+    // 05. PERSISTENCIA LOCAL (INDEXEDDB CACHE LAYER)
+    // =========================================================================
+    const StorageService = {
+      db: null,
+
+      async init() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(CONFIG.DB_NAME, CONFIG.DB_VERSION);
+
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            const stores = ['accounts', 'transactions', 'categories', 'recurring', 'creditCards', 'cardPurchases', 'loans', 'budgets', 'goals', 'settings'];
+            for (const name of stores) {
+              if (!db.objectStoreNames.contains(name)) {
+                db.createObjectStore(name, { keyPath: name === 'settings' ? 'key' : 'id' });
+              }
+            }
+          };
+
+          request.onsuccess = async (event) => {
+            this.db = event.target.result;
+            resolve(this.db);
+          };
+
+          request.onerror = (event) => {
+            console.error('Error al inicializar IndexedDB:', event.target.error);
+            reject(event.target.error);
+          };
+        });
+      },
+
+      async getAll(storeName) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction([storeName], 'readonly');
+          const store = tx.objectStore(storeName);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+      },
+
+      async get(storeName, key) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction([storeName], 'readonly');
+          const store = tx.objectStore(storeName);
+          const req = store.get(key);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      },
+
+      async put(storeName, item) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction([storeName], 'readwrite');
+          const store = tx.objectStore(storeName);
+          const req = store.put(item);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      },
+
+      async delete(storeName, key) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction([storeName], 'readwrite');
+          const store = tx.objectStore(storeName);
+          const req = store.delete(key);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => reject(req.error);
+        });
+      },
+
+      async clearAll() {
+        const stores = ['accounts', 'transactions', 'categories', 'recurring', 'creditCards', 'cardPurchases', 'loans', 'budgets', 'goals', 'settings'];
+        const tx = this.db.transaction(stores, 'readwrite');
+        for (const name of stores) tx.objectStore(name).clear();
+        return new Promise((resolve, reject) => {
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => reject(tx.error);
+        });
+      }
+    };
+
+    // =========================================================================
+    // 06. MOTOR DE SINCRONIZACIÓN (HYBRID SYNC ENGINE: SUPABASE + IDB)
+    // =========================================================================
+    const SyncService = {
+      isSyncing: false,
+
+      updateIndicator(status, text) {
+        const badge = document.getElementById('sync-indicator');
+        const label = document.getElementById('sync-text');
+        if (!badge || !label) return;
+
+        badge.className = `sync-badge ${status}`;
+        label.innerText = text;
+      },
+
+      // Mapeo entre nombres de stores en IDB y tablas en PostgreSQL
+      storeToTableMap: {
+        accounts: 'accounts',
+        categories: 'categories',
+        transactions: 'transactions',
+        creditCards: 'credit_cards',
+        cardPurchases: 'card_purchases',
+        loans: 'loans',
+        budgets: 'budgets',
+        goals: 'financial_goals',
+        recurring: 'recurring_transactions',
+        settings: 'user_settings'
+      },
+
+      async syncAll(showToast = false) {
+        if (!AuthModule.currentUser || !SupabaseService.client) {
+          this.updateIndicator('offline', 'Sin conexión');
+          await AppStore.loadFromLocalCache();
+          return;
+        }
+
+        if (this.isSyncing) return;
+        this.isSyncing = true;
+        this.updateIndicator('syncing', 'Sincronizando...');
+
+        try {
+          const userId = AuthModule.currentUser.id;
+          const sb = SupabaseService.client;
+
+          // 1. Cargar Cuentas
+          const { data: accounts, error: errAcc } = await sb.from('accounts').select('*').eq('user_id', userId);
+          if (!errAcc && accounts) {
+            for (const a of accounts) {
+              await StorageService.put('accounts', {
+                id: a.id,
+                name: a.name,
+                type: a.type,
+                currency: a.currency,
+                initialBalance: Number(a.initial_balance),
+                icon: a.icon,
+                color: a.color,
+                isActive: a.is_active,
+                createdAt: a.created_at,
+                updatedAt: a.updated_at
+              });
+            }
+          }
+
+          // 2. Cargar Categorías
+          const { data: categories } = await sb.from('categories').select('*').eq('user_id', userId);
+          if (categories && categories.length > 0) {
+            for (const c of categories) {
+              await StorageService.put('categories', {
+                id: c.id,
+                name: c.name,
+                icon: c.icon,
+                color: c.color,
+                type: c.type,
+                isCustom: c.is_custom,
+                createdAt: c.created_at,
+                updatedAt: c.updated_at
+              });
+            }
+          } else {
+            // Sembrar categorías por defecto si es usuario nuevo
+            for (const c of CONFIG.DEFAULT_CATEGORIES) {
+              await sb.from('categories').insert({
+                id: c.id,
+                user_id: userId,
+                name: c.name,
+                icon: c.icon,
+                color: c.color,
+                type: c.type,
+                is_custom: false
+              });
+              await StorageService.put('categories', c);
+            }
+          }
+
+          // 3. Cargar Transacciones
+          const { data: txs } = await sb.from('transactions').select('*').eq('user_id', userId);
+          if (txs) {
+            for (const t of txs) {
+              await StorageService.put('transactions', {
+                id: t.id,
+                type: t.type,
+                amount: Number(t.amount),
+                currency: t.currency,
+                description: t.description,
+                categoryId: t.category_id,
+                accountId: t.account_id,
+                toAccountId: t.to_account_id,
+                cardPurchaseId: t.card_purchase_id,
+                loanId: t.loan_id,
+                date: t.date,
+                notes: t.notes,
+                isRecurring: t.is_recurring,
+                recurringId: t.recurring_id,
+                isFixed: t.is_fixed,
+                createdAt: t.created_at,
+                updatedAt: t.updated_at
+              });
+            }
+          }
+
+          // 4. Cargar Tarjetas
+          const { data: cards } = await sb.from('credit_cards').select('*').eq('user_id', userId);
+          if (cards) {
+            for (const c of cards) {
+              await StorageService.put('creditCards', {
+                id: c.id,
+                name: c.name,
+                issuer: c.issuer,
+                limit: Number(c.card_limit),
+                currency: c.currency,
+                closingDay: c.closing_day,
+                dueDay: c.due_day,
+                isActive: c.is_active,
+                createdAt: c.created_at,
+                updatedAt: c.updated_at
+              });
+            }
+          }
+
+          // 5. Cargar Compras en Cuotas
+          const { data: purchases } = await sb.from('card_purchases').select('*').eq('user_id', userId);
+          if (purchases) {
+            for (const p of purchases) {
+              await StorageService.put('cardPurchases', {
+                id: p.id,
+                cardId: p.card_id,
+                description: p.description,
+                totalAmount: Number(p.total_amount),
+                currency: p.currency,
+                totalInstallments: p.total_installments,
+                installmentAmount: Number(p.installment_amount),
+                firstDueDate: p.first_due_date,
+                status: p.status,
+                createdAt: p.created_at,
+                updatedAt: p.updated_at
+              });
+            }
+          }
+
+          // 6. Cargar Préstamos
+          const { data: loans } = await sb.from('loans').select('*').eq('user_id', userId);
+          if (loans) {
+            for (const l of loans) {
+              await StorageService.put('loans', {
+                id: l.id,
+                name: l.name,
+                entity: l.entity,
+                initialAmount: Number(l.initial_amount),
+                currency: l.currency,
+                totalInstallments: l.total_installments,
+                paidInstallments: l.paid_installments,
+                installmentAmount: Number(l.installment_amount),
+                interestRate: Number(l.interest_rate),
+                startDate: l.start_date,
+                dueDate: l.due_date,
+                frequency: l.frequency,
+                accountId: l.account_id,
+                notes: l.notes,
+                status: l.status,
+                createdAt: l.created_at,
+                updatedAt: l.updated_at
+              });
+            }
+          }
+
+          // 7. Cargar Presupuestos
+          const { data: budgets } = await sb.from('budgets').select('*').eq('user_id', userId);
+          if (budgets) {
+            for (const b of budgets) {
+              await StorageService.put('budgets', {
+                id: b.id,
+                categoryId: b.category_id,
+                month: b.month,
+                amount: Number(b.amount),
+                currency: b.currency,
+                createdAt: b.created_at,
+                updatedAt: b.updated_at
+              });
+            }
+          }
+
+          // 8. Cargar Metas
+          const { data: goals } = await sb.from('financial_goals').select('*').eq('user_id', userId);
+          if (goals) {
+            for (const g of goals) {
+              await StorageService.put('goals', {
+                id: g.id,
+                name: g.name,
+                targetAmount: Number(g.target_amount),
+                currentAmount: Number(g.current_amount),
+                currency: g.currency,
+                targetDate: g.target_date,
+                description: g.description,
+                category: g.category,
+                status: g.status,
+                createdAt: g.created_at,
+                updatedAt: g.updated_at
+              });
+            }
+          }
+
+          // 9. Cargar Recurrentes
+          const { data: recurring } = await sb.from('recurring_transactions').select('*').eq('user_id', userId);
+          if (recurring) {
+            for (const r of recurring) {
+              await StorageService.put('recurring', {
+                id: r.id,
+                name: r.name,
+                type: r.type,
+                amount: Number(r.amount),
+                currency: r.currency,
+                categoryId: r.category_id,
+                accountId: r.account_id,
+                frequency: r.frequency,
+                dayOfMonth: r.day_of_month,
+                startDate: r.start_date,
+                endDate: r.end_date,
+                isActive: r.is_active,
+                lastGeneratedDate: r.last_generated_date,
+                createdAt: r.created_at,
+                updatedAt: r.updated_at
+              });
+            }
+          }
+
+          // 10. Cargar Ajustes
+          const { data: settings } = await sb.from('user_settings').select('*').eq('user_id', userId);
+          if (settings) {
+            for (const s of settings) {
+              await StorageService.put('settings', { key: s.key, value: s.value });
+            }
+          }
+
+          await AppStore.loadFromLocalCache();
+          this.updateIndicator('synced', 'Sincronizado');
+          if (showToast) UIModule.showToast('Datos sincronizados con la nube', '☁️');
+        } catch (err) {
+          console.error('Error durante sincronización:', err);
+          this.updateIndicator('error', 'Error de sync');
+          await AppStore.loadFromLocalCache();
+        } finally {
+          this.isSyncing = false;
+        }
+      },
+
+      // Guardar entidad en Supabase y en Cache Local
+      async saveItem(storeName, item) {
+        // 1. Guardar en IndexedDB de inmediato para UX fluida
+        await StorageService.put(storeName, item);
+
+        // 2. Sincronizar en la nube si hay sesión activa
+        if (AuthModule.currentUser && SupabaseService.client) {
+          const userId = AuthModule.currentUser.id;
+          const sb = SupabaseService.client;
+          const table = this.storeToTableMap[storeName];
+
+          try {
+            this.updateIndicator('syncing', 'Guardando...');
+            
+            // Adaptar objeto JS camelCase a columnas SQL snake_case
+            let payload = { user_id: userId, updated_at: new Date().toISOString() };
+
+            if (storeName === 'accounts') {
+              payload = { ...payload, id: item.id, name: item.name, type: item.type, currency: item.currency, initial_balance: item.initialBalance, icon: item.icon, color: item.color, is_active: item.isActive };
+            } else if (storeName === 'categories') {
+              payload = { ...payload, id: item.id, name: item.name, icon: item.icon, color: item.color, type: item.type, is_custom: item.isCustom ?? true };
+            } else if (storeName === 'transactions') {
+              payload = { ...payload, id: item.id, type: item.type, amount: item.amount, currency: item.currency, description: item.description, category_id: item.categoryId || null, account_id: item.accountId || null, to_account_id: item.toAccountId || null, card_purchase_id: item.cardPurchaseId || null, loan_id: item.loanId || null, date: item.date, notes: item.notes || null, is_recurring: item.isRecurring || false, recurring_id: item.recurringId || null, is_fixed: item.isFixed || false };
+            } else if (storeName === 'creditCards') {
+              payload = { ...payload, id: item.id, name: item.name, issuer: item.issuer, card_limit: item.limit, currency: item.currency, closing_day: item.closingDay, due_day: item.dueDay, is_active: item.isActive };
+            } else if (storeName === 'cardPurchases') {
+              payload = { ...payload, id: item.id, card_id: item.cardId, description: item.description, total_amount: item.totalAmount, currency: item.currency, total_installments: item.totalInstallments, installment_amount: item.installmentAmount, first_due_date: item.firstDueDate, status: item.status };
+            } else if (storeName === 'loans') {
+              payload = { ...payload, id: item.id, name: item.name, entity: item.entity, initial_amount: item.initialAmount, currency: item.currency, total_installments: item.totalInstallments, paid_installments: item.paidInstallments, installment_amount: item.installmentAmount, interest_rate: item.interestRate || 0, start_date: item.startDate || null, due_date: item.dueDate || null, frequency: item.frequency || 'monthly', account_id: item.accountId || null, notes: item.notes || null, status: item.status || 'active' };
+            } else if (storeName === 'budgets') {
+              payload = { ...payload, id: item.id, category_id: item.categoryId, month: item.month, amount: item.amount, currency: item.currency };
+            } else if (storeName === 'goals') {
+              payload = { ...payload, id: item.id, name: item.name, target_amount: item.targetAmount, current_amount: item.currentAmount, currency: item.currency, target_date: item.targetDate || null, description: item.description || null, category: item.category || null, status: item.status || 'in_progress' };
+            } else if (storeName === 'recurring') {
+              payload = { ...payload, id: item.id, name: item.name, type: item.type, amount: item.amount, currency: item.currency, category_id: item.categoryId || null, account_id: item.accountId || null, frequency: item.frequency || 'monthly', day_of_month: item.dayOfMonth, start_date: item.startDate || null, end_date: item.endDate || null, is_active: item.isActive, last_generated_date: item.lastGeneratedDate || null };
+            } else if (storeName === 'settings') {
+              payload = { id: `${userId}_${item.key}`, user_id: userId, key: item.key, value: String(item.value), updated_at: new Date().toISOString() };
+            }
+
+            const { error } = await sb.from(table).upsert(payload);
+            if (error) throw error;
+            this.updateIndicator('synced', 'Sincronizado');
+          } catch (e) {
+            console.error(`Error guardando en ${table}:`, e);
+            this.updateIndicator('error', 'Error al sincronizar');
+          }
+        }
+      },
+
+      // Eliminar entidad en Supabase y en Cache Local
+      async deleteItem(storeName, key) {
+        await StorageService.delete(storeName, key);
+
+        if (AuthModule.currentUser && SupabaseService.client) {
+          const userId = AuthModule.currentUser.id;
+          const sb = SupabaseService.client;
+          const table = this.storeToTableMap[storeName];
+
+          try {
+            this.updateIndicator('syncing', 'Eliminando...');
+            if (storeName === 'settings') {
+              await sb.from(table).delete().eq('user_id', userId).eq('key', key);
+            } else {
+              await sb.from(table).delete().eq('user_id', userId).eq('id', key);
+            }
+            this.updateIndicator('synced', 'Sincronizado');
+          } catch (e) {
+            console.error(`Error eliminando de ${table}:`, e);
+            this.updateIndicator('error', 'Error al sincronizar');
+          }
+        }
+      }
+    };
+
+    // =========================================================================
+    // 07. ASISTENTE DE MIGRACIÓN DE DATOS LOCALES A SUPABASE
+    // =========================================================================
+    const MigrationModule = {
+      async checkAndOfferMigration(forced = false) {
+        if (!AuthModule.currentUser || !SupabaseService.client) return;
+
+        const isMigrated = localStorage.getItem(`migrated_${AuthModule.currentUser.id}`);
+        if (isMigrated && !forced) return;
+
+        // Comprobar si hay transacciones o cuentas en IDB
+        const localAccounts = await StorageService.getAll('accounts');
+        const localTxs = await StorageService.getAll('transactions');
+
+        if (localAccounts.length > 0 || localTxs.length > 0) {
+          const body = `
+            <div style="text-align: center; padding: 10px 0;">
+              <div style="font-size: 2.2rem; margin-bottom: 8px;">📦</div>
+              <h3 style="font-size: 1.1rem; font-weight: 800; margin-bottom: 6px;">Datos encontrados en este dispositivo</h3>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+                Detectamos ${localAccounts.length} cuentas y ${localTxs.length} movimientos guardados previamente. ¿Querés importarlos a tu cuenta en la nube para acceder desde otros dispositivos?
+              </p>
+              <button class="btn-primary" onclick="MigrationModule.executeMigration()">📥 Importar datos a mi cuenta</button>
+              <button class="btn-secondary" onclick="MigrationModule.dismissMigration()">Omitir por ahora</button>
+            </div>
+          `;
+          UIModule.openGenericModal('Migrar Datos a la Nube', body);
+        }
+      },
+
+      async executeMigration() {
+        UIModule.closeGenericModal();
+        UIModule.showToast('Migrando datos a Supabase...', '⏳');
+
+        const stores = ['accounts', 'categories', 'transactions', 'creditCards', 'cardPurchases', 'loans', 'budgets', 'goals', 'recurring', 'settings'];
+        for (const store of stores) {
+          const items = await StorageService.getAll(store);
+          for (const item of items) {
+            await SyncService.saveItem(store, item);
+          }
+        }
+
+        localStorage.setItem(`migrated_${AuthModule.currentUser.id}`, 'true');
+        await AppStore.refreshAllData();
+        UIModule.showToast('¡Datos migrados a tu cuenta con éxito!', '🎉');
+      },
+
+      dismissMigration() {
+        if (AuthModule.currentUser) {
+          localStorage.setItem(`migrated_${AuthModule.currentUser.id}`, 'true');
+        }
+        UIModule.closeGenericModal();
+      }
+    };
+
+    // =========================================================================
+    // 08. ESTADO DE LA APLICACIÓN (APP STORE)
+    // =========================================================================
+    const AppStore = {
+      state: {
+        activeTab: 'dashboard',
+        activeMoreSubtab: 'cards',
+        currentMonth: '',
+        exchangeRate: 1500,
+        txFilter: 'all',
+        txSearch: '',
+        accounts: [],
+        categories: [],
+        transactions: [],
+        creditCards: [],
+        cardPurchases: [],
+        loans: [],
+        budgets: [],
+        goals: [],
+        recurring: []
+      },
+
+      init() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        this.state.currentMonth = `${yyyy}-${mm}`;
+      },
+
+      async loadFromLocalCache() {
+        this.state.accounts = await StorageService.getAll('accounts');
+        this.state.categories = await StorageService.getAll('categories');
+        this.state.transactions = await StorageService.getAll('transactions');
+        this.state.creditCards = await StorageService.getAll('creditCards');
+        this.state.cardPurchases = await StorageService.getAll('cardPurchases');
+        this.state.loans = await StorageService.getAll('loans');
+        this.state.budgets = await StorageService.getAll('budgets');
+        this.state.goals = await StorageService.getAll('goals');
+        this.state.recurring = await StorageService.getAll('recurring');
+
+        const rateSetting = await StorageService.get('settings', 'usd_rate');
+        this.state.exchangeRate = rateSetting ? Number(rateSetting.value) : CONFIG.DEFAULT_EXCHANGE_RATE;
+
+        // Renderizar vista
+        AppNavigation.renderCurrentView();
+      },
+
+      async refreshAllData() {
+        await this.loadFromLocalCache();
+      }
+    };
+
+    // =========================================================================
+    // 09. UTILIDADES FINANCIERAS Y DE FECHAS
+    // =========================================================================
+    const FinanceUtils = {
+      formatMoney(amount, currency = 'ARS') {
+        const num = Number(amount) || 0;
+        if (currency === 'USD') {
+          return `USD ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+        return `$ ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      },
+
+      formatCompact(amount, currency = 'ARS') {
+        const num = Number(amount) || 0;
+        const prefix = currency === 'USD' ? 'USD ' : '$ ';
+        if (Math.abs(num) >= 1_000_000) {
+          return prefix + (num / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+        }
+        if (Math.abs(num) >= 1_000) {
+          return prefix + (num / 1_000).toFixed(0) + 'k';
+        }
+        return this.formatMoney(num, currency);
+      },
+
+      toUSD(arsAmount, rate = AppStore.state.exchangeRate) {
+        return (Number(arsAmount) || 0) / (rate || 1500);
+      },
+
+      toARS(usdAmount, rate = AppStore.state.exchangeRate) {
+        return (Number(usdAmount) || 0) * (rate || 1500);
+      },
+
+      formatMonthName(yearMonthStr) {
+        if (!yearMonthStr) return '';
+        const [year, month] = yearMonthStr.split('-');
+        const date = new Date(Number(year), Number(month) - 1, 1);
+        const name = date.toLocaleString('es-ES', { month: 'long' });
+        return `${name.charAt(0).toUpperCase() + name.slice(1)} ${year}`;
+      },
+
+      generateUUID() {
+        return 'id_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+      }
+    };
+
+    // =========================================================================
+    // 10. MOTOR DE CÁLCULO FINANCIERO (FINANCIAL ENGINE)
+    // =========================================================================
+    const FinancialEngine = {
+      calculateAccountBalances() {
+        const balances = {};
+        AppStore.state.accounts.forEach(acc => {
+          balances[acc.id] = Number(acc.initialBalance) || 0;
+        });
+
+        AppStore.state.transactions.forEach(tx => {
+          const amt = Number(tx.amount) || 0;
+          if (tx.type === 'income' && balances[tx.accountId] !== undefined) {
+            balances[tx.accountId] += amt;
+          } else if (tx.type === 'expense' && balances[tx.accountId] !== undefined) {
+            balances[tx.accountId] -= amt;
+          } else if (tx.type === 'transfer') {
+            if (balances[tx.accountId] !== undefined) balances[tx.accountId] -= amt;
+            if (balances[tx.toAccountId] !== undefined) balances[tx.toAccountId] += amt;
+          } else if (tx.type === 'card_payment' && balances[tx.accountId] !== undefined) {
+            balances[tx.accountId] -= amt;
+          } else if (tx.type === 'loan_payment' && balances[tx.accountId] !== undefined) {
+            balances[tx.accountId] -= amt;
+          }
+        });
+
+        return balances;
+      },
+
+      calculateMonthCashflow(yearMonth) {
+        let income = 0;
+        let expense = 0;
+        let cardExpense = 0;
+
+        AppStore.state.transactions.forEach(tx => {
+          if (tx.date && tx.date.startsWith(yearMonth)) {
+            let amtARS = Number(tx.amount) || 0;
+            if (tx.currency === 'USD') amtARS = FinanceUtils.toARS(amtARS);
+
+            if (tx.type === 'income') {
+              income += amtARS;
+            } else if (tx.type === 'expense') {
+              expense += amtARS;
+            } else if (tx.type === 'card_purchase') {
+              cardExpense += amtARS;
+            }
+          }
+        });
+
+        const savings = income - expense;
+        return { income, expense, savings, cardExpense };
+      },
+
+      calculateTotalNetWorth() {
+        const balances = this.calculateAccountBalances();
+        let totalARS = 0;
+        let totalUSD = 0;
+
+        AppStore.state.accounts.forEach(acc => {
+          const bal = balances[acc.id] || 0;
+          if (acc.currency === 'USD') {
+            totalUSD += bal;
+          } else {
+            totalARS += bal;
+          }
+        });
+
+        let loanDebtARS = 0;
+        AppStore.state.loans.forEach(loan => {
+          const remaining = (Number(loan.totalInstallments) - Number(loan.paidInstallments)) * Number(loan.installmentAmount);
+          if (loan.currency === 'USD') {
+            totalUSD -= remaining;
+          } else {
+            loanDebtARS += remaining;
+          }
+        });
+
+        const netWorthARS = totalARS + FinanceUtils.toARS(totalUSD);
+        const netWorthUSD = FinanceUtils.toUSD(totalARS) + totalUSD;
+
+        return { netWorthARS, netWorthUSD, totalARS, totalUSD };
+      },
+
+      getSmartAlerts() {
+        const alerts = [];
+        const today = new Date();
+        const currentYearMonth = AppStore.state.currentMonth;
+
+        // 1. Alertas de Presupuesto
+        const categorySpent = {};
+        AppStore.state.transactions.forEach(tx => {
+          if (tx.date && tx.date.startsWith(currentYearMonth) && tx.type === 'expense') {
+            categorySpent[tx.categoryId] = (categorySpent[tx.categoryId] || 0) + Number(tx.amount);
+          }
+        });
+
+        AppStore.state.budgets.forEach(b => {
+          if (b.month === currentYearMonth) {
+            const spent = categorySpent[b.categoryId] || 0;
+            const limit = Number(b.amount) || 0;
+            const cat = AppStore.state.categories.find(c => c.id === b.categoryId);
+            const catName = cat ? cat.name : 'Categoría';
+
+            if (limit > 0) {
+              const ratio = spent / limit;
+              if (ratio >= 1) {
+                alerts.push({ type: 'danger', icon: '🚨', message: `¡Superaste el presupuesto de <b>${catName}</b>! (${Math.round(ratio * 100)}% gastado)` });
+              } else if (ratio >= 0.8) {
+                alerts.push({ type: 'warning', icon: '⚠️', message: `Presupuesto de <b>${catName}</b> al ${Math.round(ratio * 100)}% de su límite.` });
+              }
+            }
+          }
+        });
+
+        // 2. Alertas de Vencimiento de Tarjetas
+        const currentDay = today.getDate();
+        AppStore.state.creditCards.forEach(card => {
+          const dueDay = Number(card.dueDay);
+          if (dueDay) {
+            const diff = dueDay - currentDay;
+            if (diff >= 0 && diff <= 3) {
+              alerts.push({ type: 'warning', icon: '💳', message: `Tu tarjeta <b>${card.name}</b> vence ${diff === 0 ? 'hoy' : 'en ' + diff + ' días'} (Día ${dueDay}).` });
+            }
+          }
+        });
+
+        // 3. Alertas de Préstamos
+        AppStore.state.loans.forEach(loan => {
+          if (Number(loan.paidInstallments) < Number(loan.totalInstallments)) {
+            alerts.push({ type: 'info', icon: '📋', message: `Préstamo <b>${loan.name}</b>: Cuota pendiente ${loan.paidInstallments + 1}/${loan.totalInstallments} (${FinanceUtils.formatMoney(loan.installmentAmount, loan.currency)}).` });
+          }
+        });
+
+        return alerts;
+      }
+    };
+
+    // =========================================================================
+    // 11. CONTROLADOR DE TRANSACCIONES & MOVIMIENTOS
+    // =========================================================================
+    const TransactionsModule = {
+      openQuickModal(forcedType = null) {
+        const modal = document.getElementById('tx-bottom-sheet');
+        const backdrop = document.getElementById('tx-modal-backdrop');
+        
+        document.getElementById('tx-form').reset();
+        document.getElementById('tx-id').value = '';
+        document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+        
+        this.populateSelects();
+
+        const typeToSet = forcedType || 'expense';
+        this.setType(typeToSet);
+
+        backdrop.classList.add('open');
+        setTimeout(() => modal.classList.add('open'), 10);
+      },
+
+      closeQuickModal(event) {
+        if (event && event.target && event.target.id !== 'tx-modal-backdrop' && !event.target.classList.contains('sheet-close-btn')) {
+          return;
+        }
+        const modal = document.getElementById('tx-bottom-sheet');
+        const backdrop = document.getElementById('tx-modal-backdrop');
+        modal.classList.remove('open');
+        setTimeout(() => backdrop.classList.remove('open'), 250);
+      },
+
+      setType(type) {
+        document.getElementById('tx-current-type').value = type;
+        
+        const buttons = document.querySelectorAll('#tx-type-segments .segment-btn');
+        buttons.forEach(btn => {
+          btn.classList.remove('active', 'expense', 'income', 'transfer', 'card_purchase');
+          if (btn.innerText.toLowerCase().includes(type === 'card_purchase' ? 'tarjeta' : type === 'expense' ? 'gasto' : type === 'income' ? 'ingreso' : 'transferencia')) {
+            btn.classList.add('active', type);
+          }
+        });
+
+        const stdFields = document.getElementById('tx-fields-standard');
+        const trfFields = document.getElementById('tx-fields-transfer');
+        const cardFields = document.getElementById('tx-fields-card-purchase');
+
+        stdFields.style.display = (type === 'expense' || type === 'income') ? 'block' : 'none';
+        trfFields.style.display = (type === 'transfer') ? 'block' : 'none';
+        cardFields.style.display = (type === 'card_purchase') ? 'block' : 'none';
+
+        const titleEl = document.getElementById('tx-modal-title');
+        if (type === 'expense') titleEl.innerText = 'Registrar Gasto';
+        else if (type === 'income') titleEl.innerText = 'Registrar Ingreso';
+        else if (type === 'transfer') titleEl.innerText = 'Transferencia entre Cuentas';
+        else if (type === 'card_purchase') titleEl.innerText = 'Compra con Tarjeta';
+
+        this.filterCategorySelect(type);
+      },
+
+      populateSelects() {
+        const accSelect = document.getElementById('tx-account');
+        const fromAccSelect = document.getElementById('tx-from-account');
+        const toAccSelect = document.getElementById('tx-to-account');
+        const cardSelect = document.getElementById('tx-card-select');
+
+        const accOptions = AppStore.state.accounts.map(a => `<option value="${a.id}">${a.icon || '🏦'} ${a.name} (${a.currency})</option>`).join('');
+        accSelect.innerHTML = accOptions || '<option value="">(Sin cuentas creadas)</option>';
+        fromAccSelect.innerHTML = accOptions;
+        toAccSelect.innerHTML = accOptions;
+        if (toAccSelect.options.length > 1) toAccSelect.selectedIndex = 1;
+
+        if (AppStore.state.creditCards.length > 0) {
+          cardSelect.innerHTML = AppStore.state.creditCards.map(c => `<option value="${c.id}">💳 ${c.name} (${c.issuer})</option>`).join('');
+        } else {
+          cardSelect.innerHTML = '<option value="">(No hay tarjetas creadas)</option>';
+        }
+      },
+
+      filterCategorySelect(type) {
+        const catSelect = document.getElementById('tx-category');
+        const filtered = AppStore.state.categories.filter(c => c.type === (type === 'income' ? 'income' : 'expense'));
+        catSelect.innerHTML = filtered.map(c => `<option value="${c.id}">${c.icon || '🏷️'} ${c.name}</option>`).join('');
+      },
+
+      async saveTransaction(event) {
+        event.preventDefault();
+        const id = document.getElementById('tx-id').value || FinanceUtils.generateUUID();
+        const type = document.getElementById('tx-current-type').value;
+        const amount = parseFloat(document.getElementById('tx-amount').value);
+        const currency = document.getElementById('tx-currency').value;
+        const description = document.getElementById('tx-description').value.trim();
+        const date = document.getElementById('tx-date').value;
+        const notes = document.getElementById('tx-notes').value.trim();
+
+        if (isNaN(amount) || amount <= 0) {
+          UIModule.showToast('Ingresa un monto válido mayor a 0', '⚠️');
+          return;
+        }
+
+        const now = new Date().toISOString();
+        const txObj = {
+          id,
+          type,
+          amount,
+          currency,
+          description,
+          date,
+          notes,
+          createdAt: now,
+          updatedAt: now
+        };
+
+        if (type === 'expense' || type === 'income') {
+          txObj.categoryId = document.getElementById('tx-category').value;
+          txObj.accountId = document.getElementById('tx-account').value;
+        } else if (type === 'transfer') {
+          txObj.accountId = document.getElementById('tx-from-account').value;
+          txObj.toAccountId = document.getElementById('tx-to-account').value;
+          if (txObj.accountId === txObj.toAccountId) {
+            UIModule.showToast('La cuenta origen y destino deben ser distintas', '⚠️');
+            return;
+          }
+        } else if (type === 'card_purchase') {
+          const cardId = document.getElementById('tx-card-select').value;
+          const installments = parseInt(document.getElementById('tx-installments').value) || 1;
+          
+          if (!cardId) {
+            UIModule.showToast('Debes seleccionar o crear una tarjeta', '⚠️');
+            return;
+          }
+
+          const purchaseObj = {
+            id: FinanceUtils.generateUUID(),
+            cardId,
+            description,
+            totalAmount: amount,
+            currency,
+            totalInstallments: installments,
+            installmentAmount: amount / installments,
+            firstDueDate: date,
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+          };
+          await SyncService.saveItem('cardPurchases', purchaseObj);
+          txObj.cardPurchaseId = purchaseObj.id;
+          txObj.categoryId = 'cat_compras';
+        }
+
+        await SyncService.saveItem('transactions', txObj);
+        await AppStore.refreshAllData();
+        this.closeQuickModal();
+        UIModule.showToast('¡Movimiento guardado con éxito!', '✓');
+      },
+
+      async deleteTransaction(txId) {
+        if (confirm('¿Estás seguro de que deseas eliminar este movimiento?')) {
+          await SyncService.deleteItem('transactions', txId);
+          await AppStore.refreshAllData();
+          UIModule.showToast('Movimiento eliminado', '🗑️');
+        }
+      }
+    };
+
+    // =========================================================================
+    // 12. GESTIÓN DE CUENTAS (ACCOUNTS MODULE)
+    // =========================================================================
+    const AccountsModule = {
+      openCreateAccountModal() {
+        const body = `
+          <form id="account-form" onsubmit="AccountsModule.saveAccount(event)">
+            <div class="form-group">
+              <label class="form-label">Nombre de la Cuenta</label>
+              <input type="text" id="acc-name" class="form-input" placeholder="Ej: Santander Río, Billetera USD..." required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tipo de Cuenta</label>
+                <select id="acc-type" class="form-select">
+                  <option value="bank">Banco</option>
+                  <option value="wallet">Billetera Virtual</option>
+                  <option value="cash">Efectivo</option>
+                  <option value="usd">Cuenta USD</option>
+                  <option value="other">Otro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Moneda</label>
+                <select id="acc-currency" class="form-select">
+                  <option value="ARS">ARS ($)</option>
+                  <option value="USD">USD ($)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Saldo Inicial</label>
+              <input type="number" step="any" id="acc-initial-balance" class="form-input" value="0" required>
+            </div>
+            <button type="submit" class="btn-primary">Crear Cuenta</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Nueva Cuenta', body);
+      },
+
+      async saveAccount(event) {
+        event.preventDefault();
+        const name = document.getElementById('acc-name').value.trim();
+        const type = document.getElementById('acc-type').value;
+        const currency = document.getElementById('acc-currency').value;
+        const initialBalance = parseFloat(document.getElementById('acc-initial-balance').value) || 0;
+
+        const iconMap = { bank: '🏦', wallet: '📱', cash: '💵', usd: '💲', other: '💼' };
+        const newAcc = {
+          id: FinanceUtils.generateUUID(),
+          name,
+          type,
+          currency,
+          initialBalance,
+          icon: iconMap[type] || '🏦',
+          color: '#3b82f6',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('accounts', newAcc);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Cuenta creada correctamente', '✓');
+      }
+    };
+
+    // =========================================================================
+    // 13. GESTIÓN DE TARJETAS DE CRÉDITO (CARDS MODULE)
+    // =========================================================================
+    const CardsModule = {
+      openCreateCardModal() {
+        const body = `
+          <form id="card-form" onsubmit="CardsModule.saveCard(event)">
+            <div class="form-group">
+              <label class="form-label">Nombre de la Tarjeta</label>
+              <input type="text" id="card-name" class="form-input" placeholder="Ej: Visa Signature, Mastercard..." required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Banco / Emisor</label>
+                <input type="text" id="card-issuer" class="form-input" placeholder="Ej: BBVA, Galicia" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Límite Total</label>
+                <input type="number" step="any" id="card-limit" class="form-input" placeholder="500000" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Día de Cierre</label>
+                <input type="number" min="1" max="31" id="card-closing-day" class="form-input" placeholder="Ej: 20" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Día de Vencimiento</label>
+                <input type="number" min="1" max="31" id="card-due-day" class="form-input" placeholder="Ej: 5" required>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary">Guardar Tarjeta</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Nueva Tarjeta de Crédito', body);
+      },
+
+      async saveCard(event) {
+        event.preventDefault();
+        const cardObj = {
+          id: FinanceUtils.generateUUID(),
+          name: document.getElementById('card-name').value.trim(),
+          issuer: document.getElementById('card-issuer').value.trim(),
+          limit: parseFloat(document.getElementById('card-limit').value) || 0,
+          currency: 'ARS',
+          closingDay: parseInt(document.getElementById('card-closing-day').value),
+          dueDay: parseInt(document.getElementById('card-due-day').value),
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('creditCards', cardObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Tarjeta de crédito guardada', '💳');
+      },
+
+      openPayCardModal(cardId) {
+        const card = AppStore.state.creditCards.find(c => c.id === cardId);
+        if (!card) return;
+
+        const accOptions = AppStore.state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
+        const body = `
+          <form onsubmit="CardsModule.processCardPayment(event, '${card.id}')">
+            <p style="font-size: 0.85rem; margin-bottom: 12px;">Pagar resumen de <b>${card.name}</b></p>
+            <div class="form-group">
+              <label class="form-label">Monto a Pagar</label>
+              <input type="number" step="any" id="pay-card-amount" class="form-input" required placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Debitar de la Cuenta</label>
+              <select id="pay-card-account" class="form-select">${accOptions}</select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha de Pago</label>
+              <input type="date" id="pay-card-date" class="form-input" value="${new Date().toISOString().split('T')[0]}" required>
+            </div>
+            <button type="submit" class="btn-primary">Registrar Pago de Tarjeta</button>
+          </form>
+        `;
+        UIModule.openGenericModal(`Pagar ${card.name}`, body);
+      },
+
+      async processCardPayment(event, cardId) {
+        event.preventDefault();
+        const amount = parseFloat(document.getElementById('pay-card-amount').value);
+        const accountId = document.getElementById('pay-card-account').value;
+        const date = document.getElementById('pay-card-date').value;
+        const card = AppStore.state.creditCards.find(c => c.id === cardId);
+
+        const txObj = {
+          id: FinanceUtils.generateUUID(),
+          type: 'card_payment',
+          amount,
+          currency: 'ARS',
+          description: `Pago Tarjeta ${card ? card.name : ''}`,
+          accountId,
+          categoryId: 'cat_deudas',
+          date,
+          notes: 'Pago de resumen de tarjeta de crédito',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('transactions', txObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Pago de tarjeta registrado correctamente', '✓');
+      }
+    };
+
+    // =========================================================================
+    // 14. GESTIÓN DE PRÉSTAMOS & DEUDAS (LOANS MODULE)
+    // =========================================================================
+    const LoansModule = {
+      openCreateLoanModal() {
+        const body = `
+          <form onsubmit="LoansModule.saveLoan(event)">
+            <div class="form-group">
+              <label class="form-label">Nombre del Préstamo</label>
+              <input type="text" id="loan-name" class="form-input" placeholder="Ej: Préstamo Auto, Préstamo Personal" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Entidad / Prestamista</label>
+                <input type="text" id="loan-entity" class="form-input" placeholder="Ej: Banco / Amigo" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Monto Total Prestado</label>
+                <input type="number" step="any" id="loan-amount" class="form-input" placeholder="1000000" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Total de Cuotas</label>
+                <input type="number" id="loan-total-installments" class="form-input" placeholder="12" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Monto por Cuota</label>
+                <input type="number" step="any" id="loan-installment-amount" class="form-input" placeholder="95000" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cuotas Ya Pagadas</label>
+              <input type="number" id="loan-paid-installments" class="form-input" value="0" required>
+            </div>
+            <button type="submit" class="btn-primary">Guardar Préstamo</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Nuevo Préstamo / Deuda', body);
+      },
+
+      async saveLoan(event) {
+        event.preventDefault();
+        const loanObj = {
+          id: FinanceUtils.generateUUID(),
+          name: document.getElementById('loan-name').value.trim(),
+          entity: document.getElementById('loan-entity').value.trim(),
+          initialAmount: parseFloat(document.getElementById('loan-amount').value),
+          currency: 'ARS',
+          totalInstallments: parseInt(document.getElementById('loan-total-installments').value),
+          installmentAmount: parseFloat(document.getElementById('loan-installment-amount').value),
+          paidInstallments: parseInt(document.getElementById('loan-paid-installments').value) || 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('loans', loanObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Préstamo registrado exitosamente', '✓');
+      },
+
+      async payLoanInstallment(loanId) {
+        const loan = AppStore.state.loans.find(l => l.id === loanId);
+        if (!loan) return;
+
+        if (loan.paidInstallments >= loan.totalInstallments) {
+          UIModule.showToast('¡Este préstamo ya está completamente saldado!', '🎉');
+          return;
+        }
+
+        const accOptions = AppStore.state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
+        const body = `
+          <form onsubmit="LoansModule.processInstallmentPayment(event, '${loan.id}')">
+            <p style="font-size: 0.85rem; margin-bottom: 10px;">Pagar cuota <b>${loan.paidInstallments + 1} de ${loan.totalInstallments}</b> por <b>${FinanceUtils.formatMoney(loan.installmentAmount, loan.currency)}</b></p>
+            <div class="form-group">
+              <label class="form-label">Debitar de la Cuenta</label>
+              <select id="pay-loan-account" class="form-select">${accOptions}</select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha de Pago</label>
+              <input type="date" id="pay-loan-date" class="form-input" value="${new Date().toISOString().split('T')[0]}" required>
+            </div>
+            <button type="submit" class="btn-primary">Confirmar Pago de Cuota</button>
+          </form>
+        `;
+        UIModule.openGenericModal(`Pagar Cuota - ${loan.name}`, body);
+      },
+
+      async processInstallmentPayment(event, loanId) {
+        event.preventDefault();
+        const accountId = document.getElementById('pay-loan-account').value;
+        const date = document.getElementById('pay-loan-date').value;
+        const loan = AppStore.state.loans.find(l => l.id === loanId);
+
+        loan.paidInstallments += 1;
+        loan.updatedAt = new Date().toISOString();
+        await SyncService.saveItem('loans', loan);
+
+        const txObj = {
+          id: FinanceUtils.generateUUID(),
+          type: 'loan_payment',
+          amount: loan.installmentAmount,
+          currency: loan.currency,
+          description: `Cuota ${loan.paidInstallments}/${loan.totalInstallments} - ${loan.name}`,
+          accountId,
+          categoryId: 'cat_deudas',
+          date,
+          loanId: loan.id,
+          notes: `Pago de cuota de préstamo ${loan.entity}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('transactions', txObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast(`¡Cuota ${loan.paidInstallments} pagada con éxito!`, '✓');
+      }
+    };
+
+    // =========================================================================
+    // 15. GESTIÓN DE PRESUPUESTOS (BUDGETS MODULE)
+    // =========================================================================
+    const BudgetsModule = {
+      openCreateBudgetModal() {
+        const catOptions = AppStore.state.categories
+          .filter(c => c.type === 'expense')
+          .map(c => `<option value="${c.id}">${c.icon || '🏷️'} ${c.name}</option>`)
+          .join('');
+
+        const body = `
+          <form onsubmit="BudgetsModule.saveBudget(event)">
+            <div class="form-group">
+              <label class="form-label">Categoría a Presupuestar</label>
+              <select id="budget-category" class="form-select">${catOptions}</select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Límite Mensual (ARS)</label>
+              <input type="number" step="any" id="budget-amount" class="form-input" placeholder="Ej: 150000" required>
+            </div>
+            <button type="submit" class="btn-primary">Fijar Presupuesto</button>
+          </form>
+        `;
+        UIModule.openGenericModal(`Presupuesto - ${FinanceUtils.formatMonthName(AppStore.state.currentMonth)}`, body);
+      },
+
+      async saveBudget(event) {
+        event.preventDefault();
+        const categoryId = document.getElementById('budget-category').value;
+        const amount = parseFloat(document.getElementById('budget-amount').value);
+        const month = AppStore.state.currentMonth;
+
+        const existing = AppStore.state.budgets.find(b => b.categoryId === categoryId && b.month === month);
+        const budgetObj = {
+          id: existing ? existing.id : FinanceUtils.generateUUID(),
+          categoryId,
+          month,
+          amount,
+          currency: 'ARS',
+          createdAt: existing ? existing.createdAt : new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('budgets', budgetObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Presupuesto actualizado', '🎯');
+      },
+
+      async copyPreviousMonthBudgets() {
+        const [year, month] = AppStore.state.currentMonth.split('-');
+        let prevYear = parseInt(year);
+        let prevMonth = parseInt(month) - 1;
+        if (prevMonth === 0) {
+          prevMonth = 12;
+          prevYear -= 1;
+        }
+        const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+
+        const prevBudgets = AppStore.state.budgets.filter(b => b.month === prevMonthStr);
+        if (prevBudgets.length === 0) {
+          UIModule.showToast(`No hay presupuestos en ${FinanceUtils.formatMonthName(prevMonthStr)}`, '⚠️');
+          return;
+        }
+
+        for (const pb of prevBudgets) {
+          const budgetObj = {
+            id: FinanceUtils.generateUUID(),
+            categoryId: pb.categoryId,
+            month: AppStore.state.currentMonth,
+            amount: pb.amount,
+            currency: pb.currency,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await SyncService.saveItem('budgets', budgetObj);
+        }
+
+        await AppStore.refreshAllData();
+        UIModule.showToast(`Se copiaron ${prevBudgets.length} presupuestos del mes anterior`, '✓');
+      }
+    };
+
+    // =========================================================================
+    // 16. GESTIÓN DE OBJETIVOS FINANCIEROS (GOALS MODULE)
+    // =========================================================================
+    const GoalsModule = {
+      openCreateGoalModal() {
+        const body = `
+          <form onsubmit="GoalsModule.saveGoal(event)">
+            <div class="form-group">
+              <label class="form-label">Nombre del Objetivo</label>
+              <input type="text" id="goal-name" class="form-input" placeholder="Ej: Fondo de Emergencia, Vacaciones..." required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Monto Meta</label>
+                <input type="number" step="any" id="goal-target" class="form-input" placeholder="1000000" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ahorro Inicial</label>
+                <input type="number" step="any" id="goal-current" class="form-input" value="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fecha Objetivo (Opcional)</label>
+              <input type="date" id="goal-date" class="form-input">
+            </div>
+            <button type="submit" class="btn-primary">Crear Meta de Ahorro</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Nuevo Objetivo de Ahorro', body);
+      },
+
+      async saveGoal(event) {
+        event.preventDefault();
+        const goalObj = {
+          id: FinanceUtils.generateUUID(),
+          name: document.getElementById('goal-name').value.trim(),
+          targetAmount: parseFloat(document.getElementById('goal-target').value),
+          currentAmount: parseFloat(document.getElementById('goal-current').value) || 0,
+          currency: 'ARS',
+          targetDate: document.getElementById('goal-date').value || null,
+          status: 'in_progress',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('goals', goalObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Objetivo de ahorro creado', '🏆');
+      },
+
+      openContributeModal(goalId, isWithdraw = false) {
+        const goal = AppStore.state.goals.find(g => g.id === goalId);
+        if (!goal) return;
+
+        const accOptions = AppStore.state.accounts.map(a => `<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
+        const title = isWithdraw ? `Retirar de ${goal.name}` : `Aportar a ${goal.name}`;
+        
+        const body = `
+          <form onsubmit="GoalsModule.processContribution(event, '${goal.id}', ${isWithdraw})">
+            <div class="form-group">
+              <label class="form-label">Monto a ${isWithdraw ? 'retirar' : 'aportar'}</label>
+              <input type="number" step="any" id="goal-amount-action" class="form-input" required placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cuenta Asociada</label>
+              <select id="goal-account-action" class="form-select">${accOptions}</select>
+            </div>
+            <button type="submit" class="btn-primary">${isWithdraw ? 'Confirmar Retiro' : 'Confirmar Aporte'}</button>
+          </form>
+        `;
+        UIModule.openGenericModal(title, body);
+      },
+
+      async processContribution(event, goalId, isWithdraw) {
+        event.preventDefault();
+        const amount = parseFloat(document.getElementById('goal-amount-action').value);
+        const accountId = document.getElementById('goal-account-action').value;
+        const goal = AppStore.state.goals.find(g => g.id === goalId);
+
+        if (isNaN(amount) || amount <= 0) return;
+
+        if (isWithdraw) {
+          goal.currentAmount = Math.max(0, goal.currentAmount - amount);
+        } else {
+          goal.currentAmount += amount;
+        }
+        goal.updatedAt = new Date().toISOString();
+        await SyncService.saveItem('goals', goal);
+
+        const txObj = {
+          id: FinanceUtils.generateUUID(),
+          type: isWithdraw ? 'income' : 'expense',
+          amount,
+          currency: goal.currency,
+          description: `${isWithdraw ? 'Retiro de' : 'Aporte a'} ${goal.name}`,
+          accountId,
+          categoryId: 'cat_otros_exp',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Movimiento vinculado a objetivo de ahorro',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await SyncService.saveItem('transactions', txObj);
+
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Progreso actualizado', '🏆');
+      }
+    };
+
+    // =========================================================================
+    // 17. GASTOS RECURRENTES (RECURRING MODULE)
+    // =========================================================================
+    const RecurringModule = {
+      openCreateRecurringModal() {
+        const catOptions = AppStore.state.categories
+          .filter(c => c.type === 'expense')
+          .map(c => `<option value="${c.id}">${c.name}</option>`)
+          .join('');
+        const accOptions = AppStore.state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+        const body = `
+          <form onsubmit="RecurringModule.saveRecurring(event)">
+            <div class="form-group">
+              <label class="form-label">Nombre del Servicio / Gasto</label>
+              <input type="text" id="rec-name" class="form-input" placeholder="Ej: Netflix, Internet, Alquiler" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Monto (ARS)</label>
+                <input type="number" step="any" id="rec-amount" class="form-input" placeholder="15000" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Día del Mes</label>
+                <input type="number" min="1" max="31" id="rec-day" class="form-input" placeholder="Ej: 10" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Categoría</label>
+                <select id="rec-category" class="form-select">${catOptions}</select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cuenta de Débito</label>
+                <select id="rec-account" class="form-select">${accOptions}</select>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary">Guardar Gasto Recurrente</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Nuevo Gasto Recurrente', body);
+      },
+
+      async saveRecurring(event) {
+        event.preventDefault();
+        const recObj = {
+          id: FinanceUtils.generateUUID(),
+          name: document.getElementById('rec-name').value.trim(),
+          amount: parseFloat(document.getElementById('rec-amount').value),
+          dayOfMonth: parseInt(document.getElementById('rec-day').value),
+          categoryId: document.getElementById('rec-category').value,
+          accountId: document.getElementById('rec-account').value,
+          currency: 'ARS',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('recurring', recObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Gasto recurrente programado', '🔄');
+      },
+
+      async processRecurringNow() {
+        const month = AppStore.state.currentMonth;
+        let generatedCount = 0;
+
+        for (const rec of AppStore.state.recurring) {
+          if (!rec.isActive) continue;
+
+          const day = String(rec.dayOfMonth).padStart(2, '0');
+          const dateStr = `${month}-${day}`;
+
+          const exists = AppStore.state.transactions.some(tx => 
+            tx.date === dateStr && tx.recurringId === rec.id
+          );
+
+          if (!exists) {
+            const txObj = {
+              id: FinanceUtils.generateUUID(),
+              type: 'expense',
+              amount: rec.amount,
+              currency: rec.currency || 'ARS',
+              description: `[Recurrente] ${rec.name}`,
+              accountId: rec.accountId,
+              categoryId: rec.categoryId,
+              date: dateStr,
+              recurringId: rec.id,
+              notes: 'Generado automáticamente por regla recurrente',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await SyncService.saveItem('transactions', txObj);
+            generatedCount++;
+          }
+        }
+
+        await AppStore.refreshAllData();
+        UIModule.showToast(`Se generaron ${generatedCount} movimientos recurrentes`, '⚡');
+      }
+    };
+
+    // =========================================================================
+    // 18. MOTOR DE GRÁFICAS (CHARTS MODULE)
+    // =========================================================================
+    const ChartsModule = {
+      instances: {},
+
+      renderCharts() {
+        if (typeof Chart === 'undefined') return;
+        this.renderIncomeExpenseChart();
+        this.renderCategoriesDonut();
+        this.renderAccountsPie();
+      },
+
+      renderIncomeExpenseChart() {
+        const ctx = document.getElementById('chart-income-expenses');
+        if (!ctx) return;
+        if (this.instances.incomeExpense) this.instances.incomeExpense.destroy();
+
+        const months = [];
+        const incomes = [];
+        const expenses = [];
+
+        for (let i = 3; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          months.push(d.toLocaleString('es-ES', { month: 'short' }));
+          const flow = FinancialEngine.calculateMonthCashflow(ym);
+          incomes.push(flow.income);
+          expenses.push(flow.expense);
+        }
+
+        this.instances.incomeExpense = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: months,
+            datasets: [
+              { label: 'Ingresos', data: incomes, backgroundColor: '#10b981', borderRadius: 6 },
+              { label: 'Gastos', data: expenses, backgroundColor: '#ef4444', borderRadius: 6 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+            scales: { y: { display: false } }
+          }
+        });
+      },
+
+      renderCategoriesDonut() {
+        const ctx = document.getElementById('chart-categories-donut');
+        if (!ctx) return;
+        if (this.instances.categoriesDonut) this.instances.categoriesDonut.destroy();
+
+        const catSpent = {};
+        AppStore.state.transactions.forEach(tx => {
+          if (tx.date && tx.date.startsWith(AppStore.state.currentMonth) && tx.type === 'expense') {
+            catSpent[tx.categoryId] = (catSpent[tx.categoryId] || 0) + Number(tx.amount);
+          }
+        });
+
+        const labels = [];
+        const data = [];
+        const colors = [];
+
+        Object.keys(catSpent).forEach(catId => {
+          const cat = AppStore.state.categories.find(c => c.id === catId);
+          labels.push(cat ? cat.name : 'Varios');
+          data.push(catSpent[catId]);
+          colors.push(cat ? cat.color : '#94a3b8');
+        });
+
+        if (data.length === 0) {
+          labels.push('Sin gastos');
+          data.push(1);
+          colors.push('#e2e8f0');
+        }
+
+        this.instances.categoriesDonut = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+            cutout: '68%'
+          }
+        });
+      },
+
+      renderAccountsPie() {
+        const ctx = document.getElementById('chart-accounts-pie');
+        if (!ctx) return;
+        if (this.instances.accountsPie) this.instances.accountsPie.destroy();
+
+        const balances = FinancialEngine.calculateAccountBalances();
+        const labels = [];
+        const data = [];
+        const colors = ['#3b82f6', '#06b6d4', '#10b981', '#8b5cf6', '#f59e0b'];
+
+        AppStore.state.accounts.forEach(acc => {
+          const bal = balances[acc.id] || 0;
+          if (bal > 0) {
+            labels.push(acc.name);
+            data.push(bal);
+          }
+        });
+
+        if (data.length === 0) {
+          labels.push('Sin fondos');
+          data.push(1);
+        }
+
+        this.instances.accountsPie = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels,
+            datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }
+          }
+        });
+      }
+    };
+
+    // =========================================================================
+    // 19. BACKUP JSON & DATOS DE DEMOSTRACIÓN
+    // =========================================================================
+    const BackupModule = {
+      async exportDataJSON() {
+        const backupData = {
+          version: 2,
+          exportDate: new Date().toISOString(),
+          userEmail: AuthModule.currentUser ? AuthModule.currentUser.email : 'local',
+          accounts: AppStore.state.accounts,
+          categories: AppStore.state.categories,
+          transactions: AppStore.state.transactions,
+          creditCards: AppStore.state.creditCards,
+          cardPurchases: AppStore.state.cardPurchases,
+          loans: AppStore.state.loans,
+          budgets: AppStore.state.budgets,
+          goals: AppStore.state.goals,
+          recurring: AppStore.state.recurring
+        };
+
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_finanzas_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        UIModule.showToast('Backup descargado', '📥');
+      },
+
+      async importDataJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!confirm('¿Deseas restaurar esta copia de seguridad? Se sincronizará con tu cuenta actual.')) {
+          event.target.value = '';
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (!data.transactions || !data.accounts) throw new Error('Archivo inválido');
+
+            for (const acc of data.accounts || []) await SyncService.saveItem('accounts', acc);
+            for (const cat of data.categories || []) await SyncService.saveItem('categories', cat);
+            for (const tx of data.transactions || []) await SyncService.saveItem('transactions', tx);
+            for (const cc of data.creditCards || []) await SyncService.saveItem('creditCards', cc);
+            for (const cp of data.cardPurchases || []) await SyncService.saveItem('cardPurchases', cp);
+            for (const ln of data.loans || []) await SyncService.saveItem('loans', ln);
+            for (const bg of data.budgets || []) await SyncService.saveItem('budgets', bg);
+            for (const gl of data.goals || []) await SyncService.saveItem('goals', gl);
+            for (const rc of data.recurring || []) await SyncService.saveItem('recurring', rc);
+
+            await AppStore.refreshAllData();
+            UIModule.showToast('¡Datos importados y sincronizados!', '✓');
+          } catch (err) {
+            console.error(err);
+            UIModule.showToast('Error al importar backup JSON', '⚠️');
+          }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+      },
+
+      async wipeAllData() {
+        if (confirm('⚠️ ATENCIÓN: ¿Estás seguro de que deseas eliminar TODOS tus datos financieros?')) {
+          if (confirm('Esta acción es irreversible y los borrará de la nube y de este dispositivo. ¿Confirmas?')) {
+            const stores = ['accounts', 'transactions', 'categories', 'recurring', 'creditCards', 'cardPurchases', 'loans', 'budgets', 'goals'];
+            for (const store of stores) {
+              const items = await StorageService.getAll(store);
+              for (const item of items) {
+                await SyncService.deleteItem(store, item.id);
+              }
+            }
+            await StorageService.clearAll();
+            await AppStore.refreshAllData();
+            UIModule.showToast('Todos los datos han sido eliminados', '🗑️');
+          }
+        }
+      }
+    };
+
+    const DemoDataModule = {
+      async loadDemoData() {
+        if (!confirm('¿Deseas cargar datos de ejemplo en tu cuenta?')) return;
+
+        const currentMonth = AppStore.state.currentMonth;
+        const [year, month] = currentMonth.split('-');
+
+        const accounts = [
+          { id: 'acc_banco_ars', name: 'Banco Santander (ARS)', type: 'bank', currency: 'ARS', initialBalance: 350000, icon: '🏦', color: '#3b82f6', isActive: true },
+          { id: 'acc_mp', name: 'Mercado Pago', type: 'wallet', currency: 'ARS', initialBalance: 120000, icon: '📱', color: '#06b6d4', isActive: true },
+          { id: 'acc_cash_ars', name: 'Efectivo', type: 'cash', currency: 'ARS', initialBalance: 45000, icon: '💵', color: '#10b981', isActive: true },
+          { id: 'acc_usd', name: 'Cuenta USD', type: 'usd', currency: 'USD', initialBalance: 1200, icon: '💲', color: '#8b5cf6', isActive: true }
+        ];
+
+        const creditCards = [
+          { id: 'card_visa', name: 'Visa Gold Santander', issuer: 'Santander', limit: 800000, currency: 'ARS', closingDay: 20, dueDay: 5, isActive: true }
+        ];
+
+        const cardPurchases = [
+          { id: 'cp_tele', cardId: 'card_visa', description: 'Smart TV 55 Pulgadas', totalAmount: 480000, currency: 'ARS', totalInstallments: 6, installmentAmount: 80000, firstDueDate: `${year}-${month}-05`, status: 'active' }
+        ];
+
+        const loans = [
+          { id: 'loan_auto', name: 'Préstamo Auto', entity: 'Banco BBVA', initialAmount: 2000000, currency: 'ARS', totalInstallments: 24, paidInstallments: 10, installmentAmount: 95000, createdAt: new Date().toISOString() }
+        ];
+
+        const budgets = [
+          { id: 'b_alim', categoryId: 'cat_alim', month: currentMonth, amount: 200000, currency: 'ARS' },
+          { id: 'b_serv', categoryId: 'cat_serv', month: currentMonth, amount: 65000, currency: 'ARS' },
+          { id: 'b_entret', categoryId: 'cat_entret', month: currentMonth, amount: 50000, currency: 'ARS' }
+        ];
+
+        const goals = [
+          { id: 'goal_emerg', name: 'Fondo de Emergencia', targetAmount: 3000000, currentAmount: 1250000, currency: 'ARS', targetDate: '2026-12-31', status: 'in_progress' },
+          { id: 'goal_vacac', name: 'Viaje a Bariloche', targetAmount: 800000, currentAmount: 480000, currency: 'ARS', targetDate: '2026-10-15', status: 'in_progress' }
+        ];
+
+        const recurring = [
+          { id: 'rec_netflix', name: 'Netflix Premium', amount: 15000, dayOfMonth: 10, categoryId: 'cat_suscrip', accountId: 'acc_mp', currency: 'ARS', isActive: true },
+          { id: 'rec_internet', name: 'Fibertel 300MB', amount: 28000, dayOfMonth: 5, categoryId: 'cat_serv', accountId: 'acc_banco_ars', currency: 'ARS', isActive: true }
+        ];
+
+        const transactions = [
+          { id: 'tx_1', type: 'income', amount: 950000, currency: 'ARS', description: 'Sueldo Mensual', accountId: 'acc_banco_ars', categoryId: 'cat_sueldo', date: `${year}-${month}-02` },
+          { id: 'tx_2', type: 'expense', amount: 145000, currency: 'ARS', description: 'Supermercado Coto', accountId: 'acc_mp', categoryId: 'cat_alim', date: `${year}-${month}-06` },
+          { id: 'tx_3', type: 'expense', amount: 28000, currency: 'ARS', description: 'Fibertel Internet', accountId: 'acc_banco_ars', categoryId: 'cat_serv', date: `${year}-${month}-08` },
+          { id: 'tx_4', type: 'transfer', amount: 80000, currency: 'ARS', description: 'Transferencia a Mercado Pago', accountId: 'acc_banco_ars', toAccountId: 'acc_mp', date: `${year}-${month}-09` },
+          { id: 'tx_5', type: 'expense', amount: 42000, currency: 'ARS', description: 'Cena Restaurante', accountId: 'acc_cash_ars', categoryId: 'cat_entret', date: `${year}-${month}-12` }
+        ];
+
+        for (const a of accounts) await SyncService.saveItem('accounts', a);
+        for (const c of CONFIG.DEFAULT_CATEGORIES) await SyncService.saveItem('categories', c);
+        for (const cc of creditCards) await SyncService.saveItem('creditCards', cc);
+        for (const cp of cardPurchases) await SyncService.saveItem('cardPurchases', cp);
+        for (const l of loans) await SyncService.saveItem('loans', l);
+        for (const b of budgets) await SyncService.saveItem('budgets', b);
+        for (const g of goals) await SyncService.saveItem('goals', g);
+        for (const r of recurring) await SyncService.saveItem('recurring', r);
+        for (const t of transactions) await SyncService.saveItem('transactions', t);
+
+        await AppStore.refreshAllData();
+        UIModule.showToast('✨ Datos de demostración sincronizados', '🎉');
+      }
+    };
+
+    // =========================================================================
+    // 20. AJUSTES Y PREFERENCIAS
+    // =========================================================================
+    const SettingsModule = {
+      async saveExchangeRate() {
+        const rate = parseFloat(document.getElementById('setting-usd-rate').value);
+        if (isNaN(rate) || rate <= 0) {
+          UIModule.showToast('Tipo de cambio inválido', '⚠️');
+          return;
+        }
+        await SyncService.saveItem('settings', { key: 'usd_rate', value: rate });
+        AppStore.state.exchangeRate = rate;
+        await AppStore.refreshAllData();
+        UIModule.showToast('Tipo de cambio guardado', '✓');
+      },
+
+      openCategoriesModal() {
+        const list = AppStore.state.categories.map(c => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>${c.icon || '🏷️'}</span>
+              <span style="font-weight: 600;">${c.name}</span>
+            </div>
+            <span class="badge ${c.type === 'income' ? 'badge-ars' : 'badge-cuotas'}">${c.type === 'income' ? 'Ingreso' : 'Gasto'}</span>
+          </div>
+        `).join('');
+
+        const body = `
+          <div style="max-height: 320px; overflow-y: auto;">${list}</div>
+          <button class="btn-primary" style="margin-top: 12px;" onclick="SettingsModule.openNewCategoryForm()">+ Crear Categoría</button>
+        `;
+        UIModule.openGenericModal('Categorías', body);
+      },
+
+      openNewCategoryForm() {
+        const body = `
+          <form onsubmit="SettingsModule.saveNewCategory(event)">
+            <div class="form-group">
+              <label class="form-label">Nombre de Categoría</label>
+              <input type="text" id="new-cat-name" class="form-input" required placeholder="Ej: Gimnasio, Mascotas">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tipo</label>
+                <select id="new-cat-type" class="form-select">
+                  <option value="expense">Gasto</option>
+                  <option value="income">Ingreso</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ícono Emoji</label>
+                <input type="text" id="new-cat-icon" class="form-input" value="🏷️" required>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary">Guardar Categoría</button>
+          </form>
+        `;
+        UIModule.openGenericModal('Nueva Categoría', body);
+      },
+
+      async saveNewCategory(event) {
+        event.preventDefault();
+        const catObj = {
+          id: FinanceUtils.generateUUID(),
+          name: document.getElementById('new-cat-name').value.trim(),
+          type: document.getElementById('new-cat-type').value,
+          icon: document.getElementById('new-cat-icon').value.trim() || '🏷️',
+          color: '#6366f1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await SyncService.saveItem('categories', catObj);
+        await AppStore.refreshAllData();
+        UIModule.closeGenericModal();
+        UIModule.showToast('Categoría creada exitosamente', '✓');
+      }
+    };
+
+    // =========================================================================
+    // 21. COMPONENTES UI Y MODALES
+    // =========================================================================
+    const UIModule = {
+      showToast(message, icon = '✓') {
+        const toast = document.getElementById('toast-notification');
+        document.getElementById('toast-text').innerText = message;
+        document.getElementById('toast-icon').innerText = icon;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2800);
+      },
+
+      openGenericModal(title, contentHTML) {
+        document.getElementById('generic-modal-title').innerText = title;
+        document.getElementById('generic-modal-body').innerHTML = contentHTML;
+        const backdrop = document.getElementById('generic-modal-backdrop');
+        const sheet = document.getElementById('generic-bottom-sheet');
+        backdrop.classList.add('open');
+        setTimeout(() => sheet.classList.add('open'), 10);
+      },
+
+      closeGenericModal(event) {
+        if (event && event.target && event.target.id !== 'generic-modal-backdrop' && !event.target.classList.contains('sheet-close-btn')) {
+          return;
+        }
+        const backdrop = document.getElementById('generic-modal-backdrop');
+        const sheet = document.getElementById('generic-bottom-sheet');
+        sheet.classList.remove('open');
+        setTimeout(() => backdrop.classList.remove('open'), 250);
+      }
+    };
+
+    // =========================================================================
+    // 22. CONTROLADOR DE NAVEGACIÓN Y PANTALLAS
+    // =========================================================================
+    const AppNavigation = {
+      switchTab(tabName, subtab = null) {
+        AppStore.state.activeTab = tabName;
+        
+        document.querySelectorAll('.bottom-nav .nav-item').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.screen === tabName);
+        });
+
+        document.querySelectorAll('.screen-view').forEach(screen => {
+          screen.classList.remove('active');
+        });
+        const activeScreen = document.getElementById(`screen-${tabName}`);
+        if (activeScreen) activeScreen.classList.add('active');
+
+        if (tabName === 'more' && subtab) {
+          this.switchMoreSubtab(subtab);
+        }
+
+        this.renderCurrentView();
+      },
+
+      switchMoreSubtab(subtabName) {
+        AppStore.state.activeMoreSubtab = subtabName;
+        document.querySelectorAll('#more-subnav .segment-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.subtab === subtabName);
+        });
+        document.querySelectorAll('.more-subview').forEach(view => {
+          view.style.display = 'none';
+        });
+        const target = document.getElementById(`subtab-${subtabName}`);
+        if (target) target.style.display = 'block';
+
+        if (subtabName === 'analytics') {
+          setTimeout(() => ChartsModule.renderCharts(), 50);
+        }
+      },
+
+      changeMonth(delta) {
+        const [year, month] = AppStore.state.currentMonth.split('-');
+        let y = parseInt(year);
+        let m = parseInt(month) + delta;
+        if (m > 12) { m = 1; y += 1; }
+        if (m < 1) { m = 12; y -= 1; }
+        AppStore.state.currentMonth = `${y}-${String(m).padStart(2, '0')}`;
+        document.getElementById('current-month-display').innerText = FinanceUtils.formatMonthName(AppStore.state.currentMonth);
+        this.renderCurrentView();
+      },
+
+      renderCurrentView() {
+        document.getElementById('current-month-display').innerText = FinanceUtils.formatMonthName(AppStore.state.currentMonth);
+
+        switch (AppStore.state.activeTab) {
+          case 'dashboard': this.renderDashboard(); break;
+          case 'movements': this.renderMovements(); break;
+          case 'budgets': this.renderBudgets(); break;
+          case 'goals': this.renderGoals(); break;
+          case 'more': this.renderMoreSubviews(); break;
+        }
+      },
+
+      renderDashboard() {
+        // Alertas
+        const alerts = FinancialEngine.getSmartAlerts();
+        const alertBox = document.getElementById('dashboard-alerts');
+        if (alerts.length > 0) {
+          alertBox.innerHTML = alerts.map(a => `
+            <div class="alert-card ${a.type}">
+              <span class="alert-icon">${a.icon}</span>
+              <div class="alert-content">${a.message}</div>
+            </div>
+          `).join('');
+        } else {
+          alertBox.innerHTML = '';
+        }
+
+        // Net Worth
+        const netWorth = FinancialEngine.calculateTotalNetWorth();
+        document.getElementById('dash-total-networth-ars').innerText = FinanceUtils.formatMoney(netWorth.netWorthARS, 'ARS');
+        document.getElementById('dash-total-networth-usd').innerText = `≈ ${FinanceUtils.formatMoney(netWorth.netWorthUSD, 'USD')} • TC: $ ${AppStore.state.exchangeRate.toLocaleString('es-AR')}`;
+
+        // Cashflow
+        const flow = FinancialEngine.calculateMonthCashflow(AppStore.state.currentMonth);
+        document.getElementById('dash-month-income').innerText = `+${FinanceUtils.formatCompact(flow.income, 'ARS')}`;
+        document.getElementById('dash-month-expense').innerText = `-${FinanceUtils.formatCompact(flow.expense, 'ARS')}`;
+        document.getElementById('dash-month-savings').innerText = FinanceUtils.formatCompact(flow.savings, 'ARS');
+
+        // Cuentas
+        const balances = FinancialEngine.calculateAccountBalances();
+        const accountsScroll = document.getElementById('dash-accounts-scroll');
+        if (AppStore.state.accounts.length === 0) {
+          accountsScroll.innerHTML = `<div class="empty-state" style="padding: 10px;">No hay cuentas registradas</div>`;
+        } else {
+          accountsScroll.innerHTML = AppStore.state.accounts.map(acc => `
+            <div class="account-pill-card" onclick="TransactionsModule.openQuickModal()">
+              <div class="account-pill-header">
+                <div class="account-pill-icon">${acc.icon || '🏦'}</div>
+                <div class="account-pill-name">${acc.name}</div>
+              </div>
+              <div>
+                <div class="account-pill-balance">${FinanceUtils.formatMoney(balances[acc.id] || 0, acc.currency)}</div>
+                <div class="account-pill-currency">${acc.currency}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Presupuestos Preview
+        const budgetsPreview = document.getElementById('dash-budgets-preview');
+        const monthBudgets = AppStore.state.budgets.filter(b => b.month === AppStore.state.currentMonth);
+        if (monthBudgets.length === 0) {
+          budgetsPreview.innerHTML = `<div class="empty-state" style="padding: 12px;"><div class="empty-state-text">No has definido presupuestos para este mes.</div></div>`;
+        } else {
+          const categorySpent = {};
+          AppStore.state.transactions.forEach(tx => {
+            if (tx.date && tx.date.startsWith(AppStore.state.currentMonth) && tx.type === 'expense') {
+              categorySpent[tx.categoryId] = (categorySpent[tx.categoryId] || 0) + Number(tx.amount);
+            }
+          });
+
+          budgetsPreview.innerHTML = monthBudgets.slice(0, 3).map(b => {
+            const cat = AppStore.state.categories.find(c => c.id === b.categoryId);
+            const spent = categorySpent[b.categoryId] || 0;
+            const pct = Math.min(100, Math.round((spent / b.amount) * 100));
+            const statusClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : 'normal';
+
+            return `
+              <div style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700;">
+                  <span>${cat ? cat.icon + ' ' + cat.name : 'Categoría'}</span>
+                  <span>${FinanceUtils.formatCompact(spent)} / ${FinanceUtils.formatCompact(b.amount)} (${pct}%)</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill ${statusClass}" style="width: ${pct}%;"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Próximos Pagos
+        const duesContainer = document.getElementById('dash-upcoming-dues');
+        let duesHTML = '';
+
+        AppStore.state.creditCards.forEach(c => {
+          duesHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;">
+              <div>
+                <div style="font-weight: 700;">💳 ${c.name}</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">Vencimiento día ${c.dueDay}</div>
+              </div>
+              <button class="btn-secondary" style="width: auto; height: 32px; padding: 0 10px; margin: 0; font-size: 0.75rem;" onclick="CardsModule.openPayCardModal('${c.id}')">Pagar</button>
+            </div>
+          `;
+        });
+
+        AppStore.state.loans.forEach(l => {
+          if (l.paidInstallments < l.totalInstallments) {
+            duesHTML += `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;">
+                <div>
+                  <div style="font-weight: 700;">📋 ${l.name}</div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted);">Cuota ${l.paidInstallments + 1}/${l.totalInstallments} • ${FinanceUtils.formatMoney(l.installmentAmount, l.currency)}</div>
+                </div>
+                <button class="btn-secondary" style="width: auto; height: 32px; padding: 0 10px; margin: 0; font-size: 0.75rem;" onclick="LoansModule.payLoanInstallment('${l.id}')">Pagar Cuota</button>
+              </div>
+            `;
+          }
+        });
+
+        duesContainer.innerHTML = duesHTML || '<div class="empty-state" style="padding: 10px;">No hay vencimientos pendientes</div>';
+
+        // Objetivos Preview
+        const goalsPreview = document.getElementById('dash-goals-preview');
+        if (AppStore.state.goals.length === 0) {
+          goalsPreview.innerHTML = '<div class="empty-state" style="padding: 10px;">No hay metas de ahorro activas</div>';
+        } else {
+          goalsPreview.innerHTML = AppStore.state.goals.slice(0, 2).map(g => {
+            const pct = Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100));
+            return `
+              <div style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700;">
+                  <span>🏆 ${g.name}</span>
+                  <span>${FinanceUtils.formatCompact(g.currentAmount)} / ${FinanceUtils.formatCompact(g.targetAmount)} (${pct}%)</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill brand" style="width: ${pct}%;"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      },
+
+      renderMovements() {
+        const container = document.getElementById('transactions-list-container');
+        const filter = AppStore.state.txFilter;
+        const search = AppStore.state.txSearch.toLowerCase();
+
+        let list = AppStore.state.transactions.slice();
+        if (filter !== 'all') list = list.filter(t => t.type === filter);
+        if (search) {
+          list = list.filter(t => 
+            (t.description && t.description.toLowerCase().includes(search)) ||
+            (t.notes && t.notes.toLowerCase().includes(search))
+          );
+        }
+
+        list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+        if (list.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">💸</div>
+              <div class="empty-state-title">No hay movimientos</div>
+              <div class="empty-state-text">Presiona el botón "+" para registrar tu primer gasto o ingreso.</div>
+            </div>
+          `;
+          return;
+        }
+
+        const grouped = {};
+        list.forEach(tx => {
+          const d = tx.date || 'Sin fecha';
+          if (!grouped[d]) grouped[d] = [];
+          grouped[d].push(tx);
+        });
+
+        let html = '';
+        Object.keys(grouped).forEach(dateStr => {
+          html += `<div class="transaction-date-divider">${dateStr}</div>`;
+          grouped[dateStr].forEach(tx => {
+            const cat = AppStore.state.categories.find(c => c.id === tx.categoryId);
+            const acc = AppStore.state.accounts.find(a => a.id === tx.accountId);
+            const isIncome = tx.type === 'income';
+            const isTransfer = tx.type === 'transfer';
+            const sign = isIncome ? '+' : isTransfer ? '↔' : '-';
+            const typeClass = isIncome ? 'income' : isTransfer ? 'transfer' : 'expense';
+
+            html += `
+              <div class="transaction-item" onclick="TransactionsModule.deleteTransaction('${tx.id}')">
+                <div class="tx-left">
+                  <div class="tx-icon-badge" style="background: ${cat ? cat.color + '20' : '#f1f5f9'};">
+                    ${cat ? cat.icon : (isTransfer ? '↔️' : '💳')}
+                  </div>
+                  <div class="tx-details">
+                    <div class="tx-title">${tx.description}</div>
+                    <div class="tx-subtitle">
+                      <span>${cat ? cat.name : (isTransfer ? 'Transferencia' : 'General')}</span>
+                      ${tx.notes ? `<span>• ${tx.notes}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div class="tx-right">
+                  <div class="tx-amount ${typeClass}">${sign} ${FinanceUtils.formatMoney(tx.amount, tx.currency)}</div>
+                  <div class="tx-account-name">${acc ? acc.name : ''}</div>
+                </div>
+              </div>
+            `;
+          });
+        });
+
+        container.innerHTML = html;
+      },
+
+      renderBudgets() {
+        const container = document.getElementById('budgets-full-list');
+        const monthBudgets = AppStore.state.budgets.filter(b => b.month === AppStore.state.currentMonth);
+
+        if (monthBudgets.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🎯</div>
+              <div class="empty-state-title">Sin presupuestos este mes</div>
+              <div class="empty-state-text">Establece límites para no gastar de más o copia los del mes anterior.</div>
+            </div>
+          `;
+          return;
+        }
+
+        const categorySpent = {};
+        AppStore.state.transactions.forEach(tx => {
+          if (tx.date && tx.date.startsWith(AppStore.state.currentMonth) && tx.type === 'expense') {
+            categorySpent[tx.categoryId] = (categorySpent[tx.categoryId] || 0) + Number(tx.amount);
+          }
+        });
+
+        container.innerHTML = monthBudgets.map(b => {
+          const cat = AppStore.state.categories.find(c => c.id === b.categoryId);
+          const spent = categorySpent[b.categoryId] || 0;
+          const remaining = Math.max(0, b.amount - spent);
+          const pct = Math.min(100, Math.round((spent / b.amount) * 100));
+          const statusClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : 'normal';
+
+          return `
+            <div class="management-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 1.2rem;">${cat ? cat.icon : '🏷️'}</span>
+                  <span style="font-weight: 700; font-size: 0.95rem;">${cat ? cat.name : 'Categoría'}</span>
+                </div>
+                <span class="badge ${statusClass === 'danger' ? 'badge-cuotas' : 'badge-ars'}">${pct}% Usado</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${statusClass}" style="width: ${pct}%;"></div>
+              </div>
+              <div class="progress-labels">
+                <span>Gastado: ${FinanceUtils.formatMoney(spent)}</span>
+                <span>Límite: ${FinanceUtils.formatMoney(b.amount)}</span>
+              </div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">
+                Disponible restante: <b>${FinanceUtils.formatMoney(remaining)}</b>
+              </div>
+            </div>
+          `;
+        }).join('');
+      },
+
+      renderGoals() {
+        const container = document.getElementById('goals-full-list');
+        if (AppStore.state.goals.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🏆</div>
+              <div class="empty-state-title">Sin metas registradas</div>
+              <div class="empty-state-text">Comienza a ahorrar creando tu primer objetivo financiero.</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = AppStore.state.goals.map(g => {
+          const pct = Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100));
+          return `
+            <div class="management-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 800; font-size: 1rem;">🏆 ${g.name}</span>
+                <span class="badge badge-ars">${pct}% Logrado</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill brand" style="width: ${pct}%;"></div>
+              </div>
+              <div class="progress-labels" style="margin-top: 6px;">
+                <span>Actual: ${FinanceUtils.formatMoney(g.currentAmount, g.currency)}</span>
+                <span>Meta: ${FinanceUtils.formatMoney(g.targetAmount, g.currency)}</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;">
+                <button class="btn-secondary" style="margin: 0; font-size: 0.8rem;" onclick="GoalsModule.openContributeModal('${g.id}', false)">+ Aportar</button>
+                <button class="btn-secondary" style="margin: 0; font-size: 0.8rem;" onclick="GoalsModule.openContributeModal('${g.id}', true)">- Retirar</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      },
+
+      renderMoreSubviews() {
+        // Tarjetas
+        const cardsCont = document.getElementById('cards-list-container');
+        if (AppStore.state.creditCards.length === 0) {
+          cardsCont.innerHTML = '<div class="empty-state">No tienes tarjetas agregadas</div>';
+        } else {
+          cardsCont.innerHTML = AppStore.state.creditCards.map(c => `
+            <div class="management-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 800;">💳 ${c.name} (${c.issuer})</span>
+                <button class="btn-secondary" style="width: auto; height: 30px; margin: 0; padding: 0 10px; font-size: 0.72rem;" onclick="CardsModule.openPayCardModal('${c.id}')">Pagar Resumen</button>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                Límite: ${FinanceUtils.formatMoney(c.limit)} • Cierre: día ${c.closingDay} • Vencimiento: día ${c.dueDay}
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Compras en Cuotas
+        const cpCont = document.getElementById('card-purchases-list-container');
+        if (AppStore.state.cardPurchases.length === 0) {
+          cpCont.innerHTML = '<div class="empty-state">No hay compras en cuotas activas</div>';
+        } else {
+          cpCont.innerHTML = AppStore.state.cardPurchases.map(cp => `
+            <div class="management-card">
+              <div style="display: flex; justify-content: space-between; font-weight: 700;">
+                <span>${cp.description}</span>
+                <span class="badge badge-cuotas">${cp.totalInstallments} cuotas</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Monto cuota: ${FinanceUtils.formatMoney(cp.installmentAmount)} • Total: ${FinanceUtils.formatMoney(cp.totalAmount)}
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Préstamos
+        const loansCont = document.getElementById('loans-list-container');
+        if (AppStore.state.loans.length === 0) {
+          loansCont.innerHTML = '<div class="empty-state">No hay préstamos activos</div>';
+        } else {
+          loansCont.innerHTML = AppStore.state.loans.map(l => {
+            const pct = Math.round((l.paidInstallments / l.totalInstallments) * 100);
+            return `
+              <div class="management-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: 800;">📋 ${l.name} (${l.entity})</span>
+                  <span class="badge badge-ars">${pct}% Pagado</span>
+                </div>
+                <div class="progress-bar-bg" style="margin: 8px 0;">
+                  <div class="progress-bar-fill brand" style="width: ${pct}%;"></div>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+                  Cuotas: ${l.paidInstallments}/${l.totalInstallments} (${FinanceUtils.formatMoney(l.installmentAmount)} c/u)
+                </div>
+                <button class="btn-secondary" style="margin: 0; font-size: 0.8rem;" onclick="LoansModule.payLoanInstallment('${l.id}')">Pagar Próxima Cuota</button>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Recurrentes
+        const recCont = document.getElementById('recurring-list-container');
+        if (AppStore.state.recurring.length === 0) {
+          recCont.innerHTML = '<div class="empty-state">No hay recurrentes configurados</div>';
+        } else {
+          recCont.innerHTML = AppStore.state.recurring.map(r => `
+            <div class="management-card" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-weight: 700;">🔄 ${r.name}</div>
+                <div style="font-size: 0.76rem; color: var(--text-muted);">Día ${r.dayOfMonth} de cada mes • ${FinanceUtils.formatMoney(r.amount)}</div>
+              </div>
+              <span class="badge badge-ars">Activo</span>
+            </div>
+          `).join('');
+        }
+
+        // Cierre Mensual
+        const flow = FinancialEngine.calculateMonthCashflow(AppStore.state.currentMonth);
+        const netWorth = FinancialEngine.calculateTotalNetWorth();
+        document.getElementById('closing-month-title').innerText = `Fotografía de ${FinanceUtils.formatMonthName(AppStore.state.currentMonth)}`;
+        document.getElementById('closing-summary-details').innerHTML = `
+          <div class="snapshot-row"><span class="label">Ingresos Totales</span><span class="val" style="color: var(--color-income);">+${FinanceUtils.formatMoney(flow.income)}</span></div>
+          <div class="snapshot-row"><span class="label">Gastos Totales</span><span class="val" style="color: var(--color-expense);">-${FinanceUtils.formatMoney(flow.expense)}</span></div>
+          <div class="snapshot-row"><span class="label">Ahorro del Mes</span><span class="val">${FinanceUtils.formatMoney(flow.savings)}</span></div>
+          <div class="snapshot-row"><span class="label">Gastos con Tarjeta</span><span class="val">${FinanceUtils.formatMoney(flow.cardExpense)}</span></div>
+          <div class="snapshot-row"><span class="label">Patrimonio Neto Final</span><span class="val" style="color: var(--brand-accent);">${FinanceUtils.formatMoney(netWorth.netWorthARS)}</span></div>
+        `;
+      }
+    };
+
+    // =========================================================================
+    // 23. INICIALIZACIÓN GLOBAL
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      AppStore.init();
+      await StorageService.init();
+      SupabaseService.init();
+
+      // Iniciar capa de autenticación
+      await AuthModule.init();
+
+      // Eventos de Navegación Temporal
+      document.getElementById('btn-prev-month').addEventListener('click', () => AppNavigation.changeMonth(-1));
+      document.getElementById('btn-next-month').addEventListener('click', () => AppNavigation.changeMonth(1));
+
+      // Filtros de Movimientos
+      document.querySelectorAll('#tx-type-filters .filter-pill').forEach(pill => {
+        pill.addEventListener('click', (e) => {
+          document.querySelectorAll('#tx-type-filters .filter-pill').forEach(p => p.classList.remove('active'));
+          e.target.classList.add('active');
+          AppStore.state.txFilter = e.target.dataset.filter;
+          AppNavigation.renderMovements();
+        });
+      });
+
+      // Buscador
+      document.getElementById('tx-search-input').addEventListener('input', (e) => {
+        AppStore.state.txSearch = e.target.value;
+        AppNavigation.renderMovements();
+      });
+
+      // Copiar presupuestos
+      document.getElementById('btn-copy-previous-budget').addEventListener('click', () => {
+        BudgetsModule.copyPreviousMonthBudgets();
+      });
+
+      // Sub-navegación Más
+      document.querySelectorAll('#more-subnav .segment-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          AppNavigation.switchMoreSubtab(e.target.dataset.subtab);
+        });
+      });
+
+      // Service Worker para offline
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW:', err));
+      }
+
+      // Escuchar conexión a internet
+      window.addEventListener('online', () => SyncService.syncAll(true));
+      window.addEventListener('offline', () => SyncService.updateIndicator('offline', 'Sin conexión'));
+    });
+  </script>
+</body>
+</html>
