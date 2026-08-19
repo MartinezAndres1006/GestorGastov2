@@ -9,5 +9,5 @@
  */
 window.ENV = window.ENV || {
   SUPABASE_URL: ' https://uvpngylvcoyvjhhahqfr.supabase.co/rest/v1/',      // Ejemplo: 'https://xyzcompany.supabase.co'
-  SUPABASE_ANON_KEY: ''  // Tu clave anon/public de Supabase
+  SUPABASE_ANON_KEY: 'sb_publishable_baedrl-DKcZqkJPmIQc0ZA_Ru7_yH6E'  // Tu clave anon/public de Supabase
 };
