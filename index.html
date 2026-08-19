@@ -1014,34 +1014,68 @@
       </div>
 
       <div class="auth-card">
-        <div class="auth-tabs">
-          <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="AuthModule.setMode('login')">Iniciar Sesión</button>
-          <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="AuthModule.setMode('register')">Registrarse</button>
-          <button type="button" class="auth-tab-btn" id="tab-auth-forgot" onclick="AuthModule.setMode('forgot')">Recuperar</button>
+        <!-- CONTENEDOR PRINCIPAL DE AUTH (LOGIN / REGISTRO / RECUPERACIÓN SOLICITUD) -->
+        <div id="auth-standard-container">
+          <div class="auth-tabs">
+            <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="AuthModule.setMode('login')">Iniciar Sesión</button>
+            <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="AuthModule.setMode('register')">Registrarse</button>
+            <button type="button" class="auth-tab-btn" id="tab-auth-forgot" onclick="AuthModule.setMode('forgot')">Recuperar</button>
+          </div>
+
+          <div id="auth-alert-box" class="auth-alert"></div>
+
+          <form id="auth-form" onsubmit="AuthModule.handleSubmit(event)">
+            <div class="form-group" id="auth-group-name" style="display: none;">
+              <label class="form-label">Nombre Completo</label>
+              <input type="text" id="auth-name" class="form-input" placeholder="Tu nombre">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Correo Electrónico</label>
+              <input type="email" id="auth-email" class="form-input" placeholder="nombre@correo.com" required inputmode="email" autocomplete="email">
+            </div>
+
+            <div class="form-group" id="auth-group-password">
+              <label class="form-label">Contraseña</label>
+              <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required minlength="6" autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn-primary" id="auth-submit-btn" style="margin-top: 8px;">
+              <span id="auth-btn-text">Ingresar a mi Cuenta</span>
+            </button>
+          </form>
         </div>
 
-        <div id="auth-alert-box" class="auth-alert"></div>
-
-        <form id="auth-form" onsubmit="AuthModule.handleSubmit(event)">
-          <div class="form-group" id="auth-group-name" style="display: none;">
-            <label class="form-label">Nombre Completo</label>
-            <input type="text" id="auth-name" class="form-input" placeholder="Tu nombre">
+        <!-- CONTENEDOR DEDICADO DE CAMBIO DE CONTRASEÑA (PASSWORD RECOVERY) -->
+        <div id="auth-recovery-container" style="display: none;">
+          <div style="text-align: center; margin-bottom: 16px;">
+            <div style="display: inline-flex; width: 48px; height: 48px; border-radius: var(--radius-full); background: rgba(59, 130, 246, 0.15); color: #3b82f6; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 8px;">🔑</div>
+            <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">Nueva Contraseña</h2>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Ingresa tu nueva clave para acceder a Thesio</p>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Correo Electrónico</label>
-            <input type="email" id="auth-email" class="form-input" placeholder="nombre@correo.com" required inputmode="email" autocomplete="email">
-          </div>
+          <div id="recovery-alert-box" class="auth-alert"></div>
 
-          <div class="form-group" id="auth-group-password">
-            <label class="form-label">Contraseña</label>
-            <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required minlength="6" autocomplete="current-password">
-          </div>
+          <form id="recovery-form" onsubmit="AuthModule.handleRecoverySubmit(event)">
+            <div class="form-group">
+              <label class="form-label">Nueva Contraseña</label>
+              <input type="password" id="recovery-new-password" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
+            </div>
 
-          <button type="submit" class="btn-primary" id="auth-submit-btn" style="margin-top: 8px;">
-            <span id="auth-btn-text">Ingresar a mi Cuenta</span>
-          </button>
-        </form>
+            <div class="form-group">
+              <label class="form-label">Confirmar Nueva Contraseña</label>
+              <input type="password" id="recovery-confirm-password" class="form-input" placeholder="Repite tu contraseña" minlength="6" required autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="btn-primary" id="recovery-submit-btn" style="margin-top: 8px;">
+              <span id="recovery-btn-text">Guardar Contraseña y Entrar</span>
+            </button>
+
+            <div style="margin-top: 14px; text-align: center;">
+              <button type="button" class="card-action-btn" onclick="AuthModule.cancelRecovery()">← Cancelar y volver al inicio</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -1585,11 +1619,12 @@
     };
 
     // =========================================================================
-    // 03. CAPA DE AUTENTICACIÓN (SUPABASE AUTH)
+    // 03. CAPA DE AUTENTICACIÓN (SUPABASE AUTH & PASSWORD RECOVERY ENGINE)
     // =========================================================================
     const AuthModule = {
       currentUser: null,
       mode: 'login', // 'login', 'register', 'forgot'
+      isRecoveryMode: false,
 
       async init() {
         const isCfg = SupabaseService.init();
@@ -1599,40 +1634,82 @@
           return;
         }
 
-        // Escuchar cambios de sesión en tiempo real y eventos de recuperación de clave
+        // 1. Detectar si la URL actual viene de un enlace de recuperación de contraseña
+        const hash = window.location.hash || '';
+        const search = window.location.search || '';
+        const hasRecoveryToken = hash.includes('type=recovery') || 
+                                search.includes('type=recovery') || 
+                                (hash.includes('access_token=') && hash.includes('type=recovery')) ||
+                                sessionStorage.getItem('thesio_recovery_active') === 'true';
+
+        if (hasRecoveryToken) {
+          this.isRecoveryMode = true;
+          sessionStorage.setItem('thesio_recovery_active', 'true');
+          this.showRecoveryView();
+        }
+
+        // 2. Escuchar cambios de autenticación en tiempo real
         SupabaseService.client.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'PASSWORD_RECOVERY') {
-            AuthModule.openResetPasswordModal();
+          console.log('[Auth] Evento recibido:', event);
+
+          if (event === 'PASSWORD_RECOVERY' || this.isRecoveryMode) {
+            this.isRecoveryMode = true;
+            sessionStorage.setItem('thesio_recovery_active', 'true');
+            this.showRecoveryView();
             return;
           }
+
           if (session && session.user) {
             this.currentUser = session.user;
-            this.onUserLoggedIn();
+            if (!this.isRecoveryMode) {
+              this.onUserLoggedIn();
+            }
           } else {
             this.currentUser = null;
-            this.showAuthScreen();
+            if (!this.isRecoveryMode) {
+              this.showAuthScreen();
+            }
           }
         });
 
-        // Detectar si la URL contiene un token de recuperación de contraseña
-        if (window.location.hash && window.location.hash.includes('type=recovery')) {
-          setTimeout(() => AuthModule.openResetPasswordModal(), 300);
-          return;
-        }
-
-        // Verificar sesión existente
-        try {
-          const { data: { session } } = await SupabaseService.client.auth.getSession();
-          if (session && session.user) {
-            this.currentUser = session.user;
-            this.onUserLoggedIn();
-          } else {
+        // 3. Si no está en recuperación, verificar sesión persistente
+        if (!this.isRecoveryMode) {
+          try {
+            const { data: { session } } = await SupabaseService.client.auth.getSession();
+            if (session && session.user) {
+              this.currentUser = session.user;
+              this.onUserLoggedIn();
+            } else {
+              this.showAuthScreen();
+            }
+          } catch (e) {
+            console.error('Error al obtener sesión:', e);
             this.showAuthScreen();
           }
-        } catch (e) {
-          console.error('Error al obtener sesión:', e);
-          this.showAuthScreen();
         }
+      },
+
+      showRecoveryView() {
+        this.isRecoveryMode = true;
+        this.showAuthScreen();
+        const stdContainer = document.getElementById('auth-standard-container');
+        const recContainer = document.getElementById('auth-recovery-container');
+        if (stdContainer) stdContainer.style.display = 'none';
+        if (recContainer) recContainer.style.display = 'block';
+        this.clearAlert('recovery-alert-box');
+      },
+
+      cancelRecovery() {
+        this.isRecoveryMode = false;
+        sessionStorage.removeItem('thesio_recovery_active');
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, null, window.location.pathname);
+        }
+        const stdContainer = document.getElementById('auth-standard-container');
+        const recContainer = document.getElementById('auth-recovery-container');
+        if (stdContainer) stdContainer.style.display = 'block';
+        if (recContainer) recContainer.style.display = 'none';
+        this.setMode('login');
       },
 
       showAuthScreen() {
@@ -1651,7 +1728,7 @@
 
       setMode(mode) {
         this.mode = mode;
-        this.clearAlert();
+        this.clearAlert('auth-alert-box');
         
         document.getElementById('tab-auth-login').classList.toggle('active', mode === 'login');
         document.getElementById('tab-auth-register').classList.toggle('active', mode === 'register');
@@ -1680,21 +1757,27 @@
         }
       },
 
-      showAlert(msg, type = 'error') {
-        const box = document.getElementById('auth-alert-box');
-        box.innerText = msg;
-        box.className = `auth-alert ${type}`;
+      showAlert(msg, type = 'error', boxId = 'auth-alert-box') {
+        const box = document.getElementById(boxId);
+        if (box) {
+          box.innerText = msg;
+          box.className = `auth-alert ${type}`;
+          box.style.display = 'block';
+        }
       },
 
-      clearAlert() {
-        const box = document.getElementById('auth-alert-box');
-        box.className = 'auth-alert';
-        box.innerText = '';
+      clearAlert(boxId = 'auth-alert-box') {
+        const box = document.getElementById(boxId);
+        if (box) {
+          box.className = 'auth-alert';
+          box.innerText = '';
+          box.style.display = 'none';
+        }
       },
 
       async handleSubmit(event) {
         if (event) event.preventDefault();
-        this.clearAlert();
+        this.clearAlert('auth-alert-box');
 
         if (!SupabaseService.isConfigured()) {
           this.showAlert('No se pudo conectar al servidor. Verifica la configuración de tu aplicación.', 'error');
@@ -1780,72 +1863,64 @@
         }
       },
 
-      openResetPasswordModal() {
-        const body = `
-          <form onsubmit="AuthModule.handleUpdatePassword(event)">
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
-              Ingresa tu nueva contraseña para actualizar el acceso a tu cuenta en Thesio.
-            </p>
-            <div class="form-group">
-              <label class="form-label">Nueva Contraseña</label>
-              <input type="password" id="new-auth-password" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required style="background: #ffffff !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Confirmar Contraseña</label>
-              <input type="password" id="confirm-auth-password" class="form-input" placeholder="Repite tu nueva contraseña" minlength="6" required style="background: #ffffff !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;">
-            </div>
-            <button type="submit" class="btn-primary" id="btn-update-password">Actualizar Contraseña</button>
-          </form>
-        `;
-        UIModule.openGenericModal('Actualizar Contraseña', body);
-      },
+      async handleRecoverySubmit(event) {
+        if (event) event.preventDefault();
+        this.clearAlert('recovery-alert-box');
 
-      async handleUpdatePassword(event) {
-        event.preventDefault();
-        const newPass = document.getElementById('new-auth-password').value;
-        const confPass = document.getElementById('confirm-auth-password').value;
+        const newPass = document.getElementById('recovery-new-password').value;
+        const confPass = document.getElementById('recovery-confirm-password').value;
+        const btn = document.getElementById('recovery-submit-btn');
+        const btnText = document.getElementById('recovery-btn-text');
 
-        if (newPass.length < 6) {
-          UIModule.showToast('La contraseña debe tener al menos 6 caracteres', '⚠️');
+        if (!newPass || newPass.length < 6) {
+          this.showAlert('La contraseña debe tener al menos 6 caracteres.', 'error', 'recovery-alert-box');
           return;
         }
 
         if (newPass !== confPass) {
-          UIModule.showToast('Las contraseñas no coinciden', '⚠️');
+          this.showAlert('Las contraseñas no coinciden. Por favor verifícalas.', 'error', 'recovery-alert-box');
           return;
         }
 
-        const btn = document.getElementById('btn-update-password');
         btn.disabled = true;
-        btn.innerText = 'Actualizando...';
+        const originalText = btnText.innerText;
+        btnText.innerText = 'Guardando contraseña...';
 
         try {
-          const { error } = await SupabaseService.client.auth.updateUser({ password: newPass });
+          const { data, error } = await SupabaseService.client.auth.updateUser({
+            password: newPass
+          });
           if (error) throw error;
 
-          UIModule.closeGenericModal();
+          this.showAlert('¡Contraseña actualizada con éxito! Ingresando a tu cuenta...', 'success', 'recovery-alert-box');
           UIModule.showToast('¡Contraseña actualizada con éxito!', '🎉');
-          
-          // Limpiar hash de la URL sin recargar
+
+          // Limpiar flags de recuperación y parámetros en URL
+          this.isRecoveryMode = false;
+          sessionStorage.removeItem('thesio_recovery_active');
           if (window.history && window.history.replaceState) {
             window.history.replaceState(null, null, window.location.pathname);
           }
 
-          // Obtener sesión activa y entrar a la app
-          const { data: { session } } = await SupabaseService.client.auth.getSession();
-          if (session && session.user) {
-            this.currentUser = session.user;
-            this.onUserLoggedIn();
-          } else {
-            this.showAuthScreen();
-            this.showAlert('Contraseña actualizada con éxito. Inicia sesión con tu nueva contraseña.', 'success');
-          }
+          setTimeout(async () => {
+            document.getElementById('auth-standard-container').style.display = 'block';
+            document.getElementById('auth-recovery-container').style.display = 'none';
+
+            const { data: { session } } = await SupabaseService.client.auth.getSession();
+            if (session && session.user) {
+              this.currentUser = session.user;
+              this.onUserLoggedIn();
+            } else {
+              this.setMode('login');
+              this.showAlert('Contraseña actualizada con éxito. Inicia sesión con tus nuevos datos.', 'success');
+            }
+          }, 1200);
         } catch (err) {
           console.error('Error al actualizar contraseña:', err);
-          UIModule.showToast(err.message || 'Error al actualizar contraseña', '❌');
+          this.showAlert(err.message || 'No se pudo actualizar la contraseña. Por favor solicita un nuevo enlace.', 'error', 'recovery-alert-box');
         } finally {
           btn.disabled = false;
-          btn.innerText = 'Actualizar Contraseña';
+          btnText.innerText = originalText;
         }
       },
 
